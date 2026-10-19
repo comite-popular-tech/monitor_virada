@@ -1,0 +1,60 @@
+# Plano de coleta
+#
+# Cada chamada à API = 1 busca da cota SerpApi (só buscas bem-sucedidas contam;
+# a mesma busca repetida em até 1h vem do cache e não conta).
+#
+# Agendamento: um job roda no dia D se (D - inicio - deslocamento) for múltiplo
+# de frequencia_dias. Os jobs rodam na ordem abaixo.
+
+periodo:
+  inicio: "2026-10-16"   # base para frequencia_dias / deslocamento
+  fim: "2026-10-24"      # depois desta data nada é coletado
+
+orcamento:
+  reserva_minima: 30     # trava de segurança: para se a conta for ficar abaixo disso (0 = desliga)
+  limite_por_hora: 1000  # teto do script; o limite real é o do plano (lido da conta a cada execução)
+  pausa_entre_buscas_s: 3
+
+# Lista de cidades da segmentação (RM SP, interior PR, interior SC, GO, MG).
+# Cada linha de cidade coletada recebe cod_tse, recorte, segmento, porte e rank.
+segmentacao: config/cidades_segmentacao.csv
+
+parametros_padrao:
+  hl: pt-BR
+  tz: 180                # UTC-3 (Brasília), em minutos
+  date: "now 7-d"
+
+jobs:
+  # 1) Mapa por estado: 1 busca por grupo = 11/dia
+  - nome: estados
+    tipo: GEO_MAP
+    frequencia_dias: 1
+    geo: BR
+    region: REGION
+    grupos: [G1, G2, G3, G4, CAND, ATQ_LULA_1, ATQ_LULA_2, ATQ_FLAVIO_ORG_1, ATQ_FLAVIO_ORG_2, ATQ_FLAVIO_PUSH_1, ATQ_FLAVIO_PUSH_2]
+
+  # 2) Mapa por cidade em todos os 27 estados: 11 grupos x 27 estados = 297/dia
+  #    Cidades fora da segmentação entram com segmento vazio e cidade_alvo = false.
+  - nome: cidades
+    tipo: GEO_MAP
+    frequencia_dias: 1
+    geos: [BR-AC, BR-AL, BR-AM, BR-AP, BR-BA, BR-CE, BR-DF, BR-ES, BR-GO, BR-MA, BR-MG, BR-MS, BR-MT, BR-PA, BR-PB, BR-PE, BR-PI, BR-PR, BR-RJ, BR-RN, BR-RO, BR-RR, BR-RS, BR-SC, BR-SE, BR-SP, BR-TO]
+    region: CITY
+    include_low_search_volume: true
+    grupos: [G1, G2, G3, G4, CAND, ATQ_LULA_1, ATQ_LULA_2, ATQ_FLAVIO_ORG_1, ATQ_FLAVIO_ORG_2, ATQ_FLAVIO_PUSH_1, ATQ_FLAVIO_PUSH_2]
+    cidades_alvo: [Campinas, Ribeirão Preto, Sorocaba, São José dos Campos, São José do Rio Preto]
+
+  # 3) Buscas relacionadas aos candidatos: 1 por candidato = 3/dia
+  - nome: relacionadas_candidatos
+    tipo: RELATED_QUERIES
+    frequencia_dias: 1
+    geo: BR
+    date: "now 1-d"
+    termos: candidatos
+
+  # 4) Buscas relacionadas aos 14 termos de tema = 14 a cada 3 dias (16, 19, 22/10)
+  - nome: relacionadas_temas
+    tipo: RELATED_QUERIES
+    frequencia_dias: 3
+    geo: BR
+    termos: temas

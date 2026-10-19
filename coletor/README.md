@@ -1,0 +1,133 @@
+# serpapi-trends-monitor
+
+Coleta diária de dados do **Google Trends** via [SerpApi](https://serpapi.com/google-trends-api) para o monitoramento de temas (saúde, educação, aposentadoria e renda), dos candidatos e dos termos de ataque, por **estado** e por **cidade** nos **27 estados**. As cidades dos cinco recortes da segmentação (RM São Paulo, interior do PR, interior de SC, Goiás e Minas Gerais) saem marcadas com recorte e segmento.
+
+O plano atual usa **311 buscas por dia (325 nos dias de temas)**, ou **1.894 buscas de 19/10 a 24/10/2026**. Isso exige **plano pago** da SerpApi: o gratuito tem 250 buscas/mês e 50 por hora. Com limite de 50/h a coleta para e precisa ser rodada de novo a cada hora (7 execuções por dia). A trava `reserva_minima` (padrão 30) continua ligada e interrompe a coleta se a conta for ficar abaixo disso; para desligar, use `reserva_minima: 0` em `config/coletas.yaml`.
+
+---
+
+## O que é coletado
+
+| Job | O que traz | Frequência | Buscas |
+|---|---|---|---|
+| `estados` | Interesse por estado (27 UFs) para cada grupo de termos | diária | 11/dia |
+| `cidades` | Interesse por cidade nos 27 estados, para os 11 grupos; cada cidade da segmentação recebe recorte, segmento, porte e cod_tse | diária | 297/dia |
+| `relacionadas_candidatos` | Buscas relacionadas (top e em alta) a Lula, Flávio Bolsonaro e Bolsonaro | diária | 3/dia |
+| `relacionadas_temas` | Buscas relacionadas aos 14 termos de tema | a cada 3 dias (16, 19, 22/10) | 14 |
+
+Termos (37):
+- Temas (14): posto de saúde, ubs, mais médicos, saúde da família, brasil sorridente, escola pública, creche, merenda escolar, dinheiro direto na escola, escola em tempo integral, aposentadoria, inss, bpc loas, bolsa família.
+- Candidatos (3): lula, flávio bolsonaro, bolsonaro.
+- ATQ_LULA (8): roberta luchsinger, luchsinger, lulinha, filho do lula, filho lula bateu, lula lobista, lula socio, lula vorcaro.
+- ATQ_FLAVIO_ORG (6): 134 milhoes, flavio vorcaro, inimigo do trabalhador, privatizar o sus, lottenberg, flavio 6x1.
+- ATQ_FLAVIO_PUSH (6): flavio miliciano, flavio ana clara, flavio comando vermelho, bolsonaro miliciano, armas bolsonaro, inflacao bolsonaro.
+
+Os termos de ataque entram só nos mapas (estados e cidades), sem buscas relacionadas.
+
+Detalhes de cada escolha em [`docs/metodologia.md`](docs/metodologia.md).
+
+---
+
+## Estrutura
+
+```
+serpapi-trends-monitor/
+├── coletor/
+│   ├── __main__.py        # linha de comando (cota, plano, teste, executar)
+│   ├── cliente.py         # chamadas à SerpApi, tratamento de erros, chave nunca impressa
+│   ├── plano.py           # lê config/ e monta as buscas do dia
+│   ├── parse.py           # converte as respostas em tabelas
+│   └── armazenamento.py   # grava JSON bruto, CSVs e log
+├── config/
+│   ├── termos.yaml        # termos, macrotemas, grupos e âncora
+│   ├── coletas.yaml       # jobs, período, orçamento e parâmetros
+│   └── cidades_segmentacao.csv  # 1.794 cidades da segmentação (recorte, segmento, porte, cod_tse)
+├── data/                  # saídas (criadas na primeira coleta)
+├── docs/
+│   ├── metodologia.md     # como os dados são comparáveis e como ler
+│   └── operacao.md        # rotina, falhas e mudanças sem estourar a cota
+├── tests/                 # testes com respostas de exemplo (não gastam cota)
+├── .github/workflows/coleta-diaria.yml
+├── .env.example
+└── requirements.txt
+```
+
+---
+
+## Instalação local
+
+Requer Python 3.10+.
+
+```bash
+git clone <url-do-repositorio>
+cd serpapi-trends-monitor
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env             # depois edite .env e coloque a chave
+```
+
+## Comandos
+
+```bash
+python -m coletor cota                     # buscas restantes e renovação (NÃO gasta cota)
+python -m coletor plano                    # o que seria coletado hoje (NÃO gasta cota)
+python -m coletor plano --data 2026-10-19  # idem para outra data
+python -m coletor teste --n 5              # roda só as 5 primeiras buscas do dia
+python -m coletor executar                 # coleta completa do dia
+python -m coletor executar --somente estados
+```
+
+Antes de cada coleta, o script consulta a conta (de graça) e para se:
+- as buscas restantes ficarem abaixo de `reserva_minima` (padrão 30);
+- o limite por hora (50) for atingido;
+- a chave for inválida ou a cota acabar.
+
+Rodar o mesmo dia duas vezes **não gasta cota de novo**: buscas já feitas ficam registradas em `data/log_coletas.csv` e são puladas (use `--forcar` só se precisar refazer).
+
+---
+
+## Coleta automática no GitHub Actions
+
+1. Este repositório é público: antes de subir, confira que `config/cidades_segmentacao.csv` não está versionado (está no `.gitignore`) e coloque o arquivo real só localmente, fora do git.
+2. Em **Settings → Secrets and variables → Actions → New repository secret**, crie `SERPAPI_KEY` com a chave.
+3. Em **Settings → Actions → General → Workflow permissions**, marque **Read and write permissions** (o workflow grava os dados em `data/`).
+4. Pronto: o workflow roda todo dia às 06:47 (Brasília) e faz commit dos dados.
+5. Para rodar na hora: aba **Actions → Coleta diária Google Trends → Run workflow** (dá para escolher um job só).
+
+Se a coleta falhar, o workflow fica vermelho e o motivo aparece no log e em `data/log_coletas.csv`.
+
+---
+
+## Saídas (`data/`)
+
+| Arquivo | Uma linha por | Colunas principais |
+|---|---|---|
+| `geo_map.csv` | local × termo × dia | `data_coleta, job, grupo, geo_busca, resolucao, periodo, local, local_codigo, cidade_alvo, termo, macrotema, eh_ancora, valor, indice_vs_ancora, uf, cod_tse, recorte, segmento, porte, rank_no_segmento_recorte` |
+| `related_queries.csv` | consulta relacionada × dia | `data_coleta, job, termo_base, macrotema, lista (top / em alta), posicao, consulta, valor, valor_num` |
+| `log_coletas.csv` | busca executada | `data_coleta, horario_utc, busca_id, tipo, status, linhas, search_id, mensagem` |
+| `bruto/AAAA-MM-DD/*.json` | resposta original | para auditoria e reprocessamento |
+
+Em `geo_map.csv`, `eh_ancora` e `cidade_alvo` são `true`/`false` (compatíveis com BOOLEAN no BigQuery). Para filtrar só as cidades da segmentação: `segmento <> ''` (ou `cod_tse IS NOT NULL` no BQ). As 5 cidades do interior de SP (Campinas, Ribeirão Preto, Sorocaba, São José dos Campos, São José do Rio Preto) têm `cidade_alvo = true`, mas não fazem parte da segmentação.
+
+Os CSVs abrem direto no Google Sheets, Looker Studio ou BigQuery. Como ler `valor` e `indice_vs_ancora`: veja [`docs/metodologia.md`](docs/metodologia.md#como-ler-os-números).
+
+---
+
+## Segurança
+
+- A chave fica **só** no `.env` (local) ou no secret do GitHub. Nunca no código, em planilhas ou em mensagens.
+- O script remove a chave de mensagens de erro e dos JSONs salvos (há teste para isso).
+- Use uma conta SerpApi **dedicada** a este projeto e **troque a chave** quando o período acabar.
+- **Não use o Playground** do site da SerpApi: cada teste lá consome a mesma cota.
+- Os dados do Google Trends são agregados e anônimos; nada aqui identifica pessoas.
+- `config/cidades_segmentacao.csv` contém a segmentação da campanha (estratégia) e **nunca é commitado** neste repositório público (está no `.gitignore`). Para rodar localmente, coloque o arquivo original nesse caminho; os 4 testes que dependem dele ficam "skipped" quando o arquivo não existe (veja `tests/test_coletor.py`).
+
+## Testes
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+Os testes usam respostas de exemplo em `tests/fixtures/` e não fazem chamadas reais.

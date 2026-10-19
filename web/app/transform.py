@@ -1,0 +1,167 @@
+"""Converte o resultado das consultas no formato que a página do painel lê (objeto D)."""
+import csv
+import math
+import unicodedata
+from collections import defaultdict
+from pathlib import Path
+
+import pandas as pd
+
+DATA = Path(__file__).parent / "data"
+UF_COD = {11: "RO", 12: "AC", 13: "AM", 14: "RR", 15: "PA", 16: "AP", 17: "TO", 21: "MA", 22: "PI", 23: "CE",
+          24: "RN", 25: "PB", 26: "PE", 27: "AL", 28: "SE", 29: "BA", 31: "MG", 32: "ES", 33: "RJ", 35: "SP",
+          41: "PR", 42: "SC", 43: "RS", 50: "MS", 51: "MT", 52: "GO", 53: "DF"}
+
+
+def _norm(s):
+    s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
+    return " ".join(s.replace("'", " ").replace("-", " ").split())
+
+
+def _proj(lon0, lon1, lat0, lat1, W, H):
+    k = math.cos(math.radians((lat0 + lat1) / 2))
+    s = min(W / ((lon1 - lon0) * k), H / (lat1 - lat0))
+    ox = (W - (lon1 - lon0) * k * s) / 2
+    oy = (H - (lat1 - lat0) * s) / 2
+    return lambda lon, lat: (ox + (lon - lon0) * k * s, oy + (lat1 - lat) * s)
+
+
+# mesma projeção do mapa "Onde agir hoje" (SP, MG, PR, SC, GO)
+P_FOCO = _proj(-55, -40.5, -27, -15.5, 600, 520)
+_COORD = {}
+with (DATA / "municipios.csv").open(encoding="utf-8") as f:
+    for r in csv.DictReader(f):
+        uf = UF_COD.get(int(r["codigo_uf"]))
+        _COORD[(uf, _norm(r["nome"]))] = (float(r["longitude"]), float(r["latitude"]))
+# grafias que mudaram entre IBGE e TSE
+_APELIDOS = {"embu": "embu das artes", "moji mirim": "mogi mirim", "moji das cruzes": "mogi das cruzes",
+             "moji guacu": "mogi guacu", "munhoz de mello": "munhoz de melo", "bom jesus": "bom jesus de goias"}
+
+
+def coord(uf, cidade):
+    n = _norm(cidade)
+    return _COORD.get((uf, n)) or _COORD.get((uf, _APELIDOS.get(n, n)))
+
+
+def _nn(v):
+    """NaN/None vira None (JSON null)."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return v
+
+
+def _b(v):
+    v = _nn(v)
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "sim", "1")
+    return bool(v) if v is not None else False
+
+
+def em_alta(df, dia):
+    """Monta as linhas de vw_em_alta e as duas séries por hora do Looker.
+
+    Evolução por hora e Interesse 24h usam SUM(Aumento), não volume, e só entram
+    assuntos com situacao="Em alta agora" e termos_txt preenchido (os filtros
+    "vw_alta_situacao_altaagora" e "Termo_is_not_sull" do relatório original).
+    Veja docs/DADOS.md para o detalhe de cada filtro e metrica confirmados nos
+    prints do Looker.
+    """
+    rows, hora, h24 = [], defaultdict(lambda: [0.0, 0.0]), defaultdict(float)
+    for r in df.itertuples(index=False):
+        cand = _nn(r.candidato_mencionado) or "Nenhum"
+        vol = float(_nn(r.volume) or 0)
+        aum = float(_nn(r.aumento) or 0)
+        h = int(_nn(r.hora) or 0)
+        ativa = _nn(r.situacao) == "Em alta agora"
+        termo = _nn(r.termos_txt) or ""
+        rows.append(dict(d=dia, geo=_nn(r.uf_iso) or "", uf=_nn(r.uf) or "", r=r.rotulo, t=termo,
+                         tema=_nn(r.tema) or "Outros", cand=cand, vol=vol, aum=aum, h=h,
+                         dur=float(_nn(r.duracao_h) or 0), ativa=ativa))
+        if ativa and termo:
+            if cand in ("Lula", "Os dois"):
+                hora[h][0] += aum
+            if cand in ("Flávio / Bolsonaro", "Os dois"):
+                hora[h][1] += aum
+            h24[(h, r.rotulo)] += aum
+    # Evolução por hora: soma do Aumento (%) dos assuntos ativos que citam cada candidato
+    serie = [dict(d=dia, h=h, lula=round(hora[h][0], 1), flavio=round(hora[h][1], 1)) for h in range(24)]
+    # Interesse 24h: 10 rótulos de maior soma de Aumento, por hora
+    tot = defaultdict(float)
+    for (h, rot), v in h24.items():
+        tot[rot] += v
+    top = {r for r, _ in sorted(tot.items(), key=lambda x: -x[1])[:10]}
+    v24 = [dict(d=dia, h=h, r=rot, v=round(v, 1)) for (h, rot), v in sorted(h24.items()) if rot in top]
+    return rows, serie, v24
+
+
+def cidades(acao, terr, dia):
+    idx = defaultdict(dict)
+    for r in terr.itertuples(index=False):
+        if _nn(r.indice) is not None:
+            idx[(r.uf, r.cidade)][r.macrotema] = round(float(r.indice), 2)
+    out = []
+    for r in acao.itertuples(index=False):
+        xy = coord(r.uf, r.cidade)
+        x, y = P_FOCO(*xy) if xy else (None, None)
+        dif = _nn(r.diferenca_busca_voto)
+        out.append(dict(d=dia, c=r.cidade, uf=r.uf, cod_tse=_nn(r.cod_tse), recorte=_nn(r.recorte) or "",
+                        seg=_nn(r.segmento) or "", porte=_nn(r.porte) or "", idx=idx.get((r.uf, r.cidade), {}),
+                        tp=_nn(r.tema_principal) or "", ts=_nn(r.tema_subindo) or "",
+                        tv=round(float(_nn(r.variacao_tema_subindo) or 0), 1), sinal=_nn(r.sinal_busca) or "",
+                        pri=_nn(r.prioridade_acao) or "4 · Monitorar", voto=_nn(r.voto_lula_1t),
+                        busca=_nn(r.share_busca_lula), dif=None if dif is None else round(float(dif), 3),
+                        x=None if x is None else round(x), y=None if y is None else round(y)))
+    return out
+
+
+def pautas(df, dia):
+    out = []
+    for r in df.itertuples(index=False):
+        out.append(dict(d=dia, base=r.termo_base, alvo=_nn(r.alvo) or "Tema", mac=_nn(r.macrotema) or "",
+                        q=r.consulta, v=float(_nn(r.valor_num) or 0), nova=_b(r.nova), emalta=_b(r.tambem_em_alta),
+                        expl=_b(r.explosao)))
+    return out
+
+
+# ---------------- radar (filtrado no servidor) ----------------
+RADAR_CAMPOS = {"local": "local", "uf": "uf", "alvo": "alvo", "porte": "porte", "seg": "segmento", "mac": "macrotema"}
+
+
+def preparar_radar(df):
+    df = df.copy()
+    df["macrotema"] = df["macrotema"].replace({"Aposentadoria": "Aposentadoria e renda"}).fillna("")
+    df["alvo"] = df["cidade_alvo"].map(lambda v: "Sim" if _b(v) else "Não")
+    for c in ("local", "uf", "segmento", "porte", "termo"):
+        df[c] = df[c].fillna("").astype(str)
+    df["_busca"] = (df["local"] + " " + df["termo"]).str.lower()
+    return df
+
+
+def filtrar_radar(df, filtros, pf_uf=None, q=None, limite=100):
+    base = df
+    if pf_uf:
+        base = base[base["uf"] == pf_uf]
+    if q:
+        base = base[base["_busca"].str.contains(q.lower(), regex=False)]
+    ativos = {k: v for k, v in filtros.items() if v and k in RADAR_CAMPOS}
+
+    def aplica(d, pular=None):
+        for k, v in ativos.items():
+            if k != pular:
+                d = d[d[RADAR_CAMPOS[k]] == v]
+        return d
+
+    sel = aplica(base)
+    opts = {}
+    for k, col in RADAR_CAMPOS.items():
+        vals = aplica(base, pular=k)[col].dropna().unique().tolist()
+        opts[k] = sorted((v for v in vals if v not in ("", "—")), key=lambda s: _norm(s))
+    top = sel.nlargest(limite, "indice")
+    rows = [dict(local=r.local, uf=r.uf, termo=r.termo, mac=r.macrotema, seg=r.segmento, porte=r.porte,
+                 alvo=r.alvo, idx=round(float(r.indice), 2), dl=_nn(r.variacao_pct)) for r in top.itertuples(index=False)]
+    return {"rows": rows, "opts": opts, "total": int(len(sel))}

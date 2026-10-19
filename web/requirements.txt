@@ -1,0 +1,6 @@
+fastapi==0.148.0
+uvicorn==0.53.0
+google-cloud-bigquery==3.46.2
+pandas==3.0.5
+db-dtypes==1.8.0
+tzdata==2025.2
