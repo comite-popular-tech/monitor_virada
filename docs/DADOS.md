@@ -18,7 +18,7 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 | Tabela "Top termos" | `vw_em_alta` | `termos_txt` ("Termos") | `MAX(aumento)`, ordenado desc | — | Confirmado |
 | Mapa "Onde está em alta" | `vw_em_alta` | `uf_iso` (cor por `candidato_mencionado`) | `SUM(aumento)` (tamanho da bolha) | `candidato_mencionado <> "Nenhum"` (filtro "Candidato_True") | Confirmado |
 | Barras por Estado | `vw_em_alta` | `uf` (detalhe `candidato_mencionado`) | `SUM(aumento)` | `situacao = "Em alta agora"` + `termos_txt` preenchido, top 10 UFs | Confirmado (nome exato das duas condições do filtro composto não está nos prints, mantive a leitura mais direta de "vw_alta_situacao_altaagora" e "Termo_is_not_sull") |
-| Evolução por hora | `vw_em_alta` | `inicio` (data/hora da leitura) | `SUM(aumento)` | mesmos dois filtros da barra por Estado | Confirmado quanto à métrica (SUM(Aumento), não volume — isso estava diferente na primeira versão do painel e já foi corrigido). A quebra em duas linhas (Lula / Flávio) é reconstruída somando `aumento` dos assuntos com `candidato_mencionado` igual a cada um deles ou "Os dois" — essa regra de quebra não aparece no print, é a leitura que explica as duas séries da legenda. |
+| Evolução por hora | `vw_em_alta` | `rotulo`, N superiores = 10 | `SUM(aumento)` | mesmos dois filtros da barra por Estado | Confirmado (2º print de 20/10): a dimensão detalhada é `rotulo`, não `candidato_mencionado`. As duas linhas "Lula" e "Flávio Bolsonaro" são os próprios rótulos das buscas diretas pelo nome do candidato (grupo `CAND` no coletor: lula, flávio bolsonaro, bolsonaro), não uma soma por `candidato_mencionado`. O backend hoje soma `aumento` dos rótulos normalizados "lula" e "flávio bolsonaro"/"bolsonaro" por hora. |
 | Tabela Termos × Horas (ao lado da evolução) | `vw_em_alta` | `termos_txt` + `horas_desde_inicio` | `MAX(aumento)` | mesmos dois filtros, ordenado por horas asc | Confirmado |
 | "Buscas em alta por Estado" (tabela com filtros Tema/Rótulo/Candidato/Estado) | `vw_em_alta` | Tema, Rótulo, Candidato, Termos | `MAX(aumento)`, `MAX(volume)` | os 4 dropdowns do bloco | Confirmado nos campos; o painel web hoje mantém uma linha por Estado em vez de agregar todas as UFs numa linha só por rótulo — se no relatório original a tabela esconde o Estado e agrega por rótulo/tema/candidato, é um ajuste de uma linha em `app/main.py`/no template, me avisa que eu faço |
 | "Interesse nas últimas 24h" (barras empilhadas) | `vw_em_alta` | `inicio`, detalhe `rotulo` | `SUM(aumento)` | `situacao = "Em alta agora"`, top N | Confirmado na métrica; o Looker pede "N superiores = 100" e o painel web mostra os 10 rótulos de maior soma para não virar 100 cores numa barra — mantive 10 de propósito |
@@ -27,7 +27,7 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 
 | Bloco | Fonte | Dimensão | Métrica | Filtros | Status |
 |---|---|---|---|---|---|
-| Tabela "Radar local" (com dropdowns Local/Estado/Cidade alvo/Porte/Segmento/Macrotema) | `gtrends_monitoramento_cidades` | `macrotema`, `local`, `termo` | `AVG(indice_vs_ancora)` | `eh_ancora = false` (filtro "Exc_ancora"), últimos 7 dias | Confirmado na dimensão/métrica/filtro. A coluna de variação % (dia contra dia anterior) é um cálculo do painel web (`LAG` por dia no SQL), não localizei esse campo específico no recorte de tela do Looker — mantive porque é isso que aparece desenhado na tabela renderizada, mas se o campo oficial for outro me manda o print dele |
+| Tabela "Radar local" (com dropdowns Local/Estado/Cidade alvo/Porte/Segmento/Macrotema) | `gtrends_monitoramento_cidades` | `macrotema`, `local`, `termo` | `AVG(indice_vs_ancora)` | `eh_ancora = false` (filtro "Exc_ancora"), últimos 7 dias | Confirmado (2º print de 20/10): o campo `indice_vs_ancora` está com "Cálculo de comparação: Nenhum" no Looker, ou seja, a variação dia-a-dia não é um campo nativo da métrica principal. A coluna "% Δ" da tabela é calculada à parte; o painel web reproduz isso no backend (`LAG` por dia no SQL, dia contra dia anterior), consistente com o texto do bloco ("veja a evolução de ontem para hoje") |
 
 ## Página 2 — Mobilização / território
 
@@ -44,8 +44,10 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 
 ## O que ainda precisa de confirmação sua
 
-1. **"Share de pauta eleitoral"**: é um campo calculado que já existe em `vw_em_alta` no Looker; o print mostra só o nome, não a fórmula. Se você abrir o relatório → Recurso → Gerenciar campos adicionados/editor de campo calculado e me mandar a fórmula, eu troco o cálculo do backend por ela.
-2. **Quebra Lula/Flávio na Evolução por hora**: o print não mostra uma dimensão de detalhe configurada nessa área do gráfico, só `inicio` + `SUM(Aumento)`; a legenda com duas linhas é reconstruída no painel web agrupando por `candidato_mencionado`. Se o gráfico original usa dois gráficos sobrepostos com filtro próprio (um por candidato) em vez de uma dimensão de detalhe, me avisa que ajusto.
-3. **Variação % no radar local**: calculada no backend (dia contra dia anterior), não identifiquei um campo equivalente no recorte de tela do Looker.
+1. **"Share de pauta eleitoral"**: é um campo que já existe fisicamente em `vw_em_alta` (criado direto na view, não é um campo calculado do Looker). Para pegar a fórmula exata, rode no console do BigQuery e me mande o resultado:
+   ```sql
+   SELECT ddl FROM `comite-tecnologia.analise_redes.INFORMATION_SCHEMA.VIEWS` WHERE table_name = 'vw_em_alta'
+   ```
+   Esta sessão não tem credencial do BigQuery pra rodar isso direto.
 
-Nenhum desses três pontos muda a fonte (tabela/view) usada — só a conta exata de um número dentro dela.
+Os outros dois pontos (quebra Lula/Flávio na Evolução por hora e variação % do radar local) foram confirmados em 20/10 e já estão corrigidos no código e na tabela acima.

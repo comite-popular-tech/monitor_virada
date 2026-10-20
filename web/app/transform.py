@@ -68,9 +68,13 @@ def em_alta(df, dia):
     Evolução por hora e Interesse 24h usam SUM(Aumento), não volume, e só entram
     assuntos com situacao="Em alta agora" e termos_txt preenchido (os filtros
     "vw_alta_situacao_altaagora" e "Termo_is_not_sull" do relatório original).
-    Veja docs/DADOS.md para o detalhe de cada filtro e metrica confirmados nos
-    prints do Looker.
+
+    A Evolução por hora é dimensão=rotulo, SUM(aumento), N superiores=10 (confirmado
+    no Looker); as duas linhas Lula/Flávio Bolsonaro são os próprios rótulos das
+    buscas diretas pelo nome do candidato (grupo CAND no coletor), não uma soma por
+    candidato_mencionado. Veja docs/DADOS.md.
     """
+    LULA, FLAVIO = "lula", "flávio bolsonaro"
     rows, hora, h24 = [], defaultdict(lambda: [0.0, 0.0]), defaultdict(float)
     for r in df.itertuples(index=False):
         cand = _nn(r.candidato_mencionado) or "Nenhum"
@@ -79,16 +83,18 @@ def em_alta(df, dia):
         h = int(_nn(r.hora) or 0)
         ativa = _nn(r.situacao) == "Em alta agora"
         termo = _nn(r.termos_txt) or ""
-        rows.append(dict(d=dia, geo=_nn(r.uf_iso) or "", uf=_nn(r.uf) or "", r=r.rotulo, t=termo,
+        rot = r.rotulo
+        rows.append(dict(d=dia, geo=_nn(r.uf_iso) or "", uf=_nn(r.uf) or "", r=rot, t=termo,
                          tema=_nn(r.tema) or "Outros", cand=cand, vol=vol, aum=aum, h=h,
                          dur=float(_nn(r.duracao_h) or 0), ativa=ativa))
         if ativa and termo:
-            if cand in ("Lula", "Os dois"):
+            rn = _norm(rot)
+            if rn == LULA:
                 hora[h][0] += aum
-            if cand in ("Flávio / Bolsonaro", "Os dois"):
+            elif rn == FLAVIO or rn == "bolsonaro":
                 hora[h][1] += aum
-            h24[(h, r.rotulo)] += aum
-    # Evolução por hora: soma do Aumento (%) dos assuntos ativos que citam cada candidato
+            h24[(h, rot)] += aum
+    # Evolução por hora: soma do Aumento (%) dos rótulos "lula" e "flávio bolsonaro"/"bolsonaro"
     serie = [dict(d=dia, h=h, lula=round(hora[h][0], 1), flavio=round(hora[h][1], 1)) for h in range(24)]
     # Interesse 24h: 10 rótulos de maior soma de Aumento, por hora
     tot = defaultdict(float)
