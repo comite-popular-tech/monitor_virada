@@ -13,8 +13,8 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 
 | Bloco | Fonte | Dimensão | Métrica | Filtros | Status |
 |---|---|---|---|---|---|
-| KPI "% com pauta Eleitoral" | `vw_em_alta` | — | campo calculado **"Share de pauta eleitoral"** (já existe na view) | — | Interpretação: o Looker mostra o nome do campo calculado, não a fórmula. O painel web reproduz hoje como proporção do volume de busca em `tema = "Eleição"` sobre o total das últimas 24h. Pode não ser exatamente a fórmula original — se tiver a definição do campo (Recurso → Editor de campos calculados no relatório), me manda que eu ajusto. |
-| Pizza por candidato | `vw_em_alta` | `candidato_mencionado` | `SUM(volume)` | — | Confirmado |
+| KPI "% com pauta Eleitoral" | `vw_em_alta` | — | campo calculado no Looker: `COUNT_DISTINCT(CASE WHEN tema='Eleição' OR candidato_mencionado<>'Nenhum' THEN rotulo END) / COUNT_DISTINCT(rotulo)` | — | Confirmado (fórmula exata, 20/10). É a proporção de **rótulos distintos** com pauta eleitoral ou que citam candidato sobre o total de rótulos distintos — não é ponderado por volume. O painel web reproduz exatamente essa fórmula. |
+| Pizza por candidato | `vw_em_alta` | `candidato_mencionado` | `SUM(volume)` | `candidato_mencionado <> "Nenhum"` | Confirmado. (Corrigido 20/10: o painel web estava contando rótulos distintos em vez de somar volume — já ajustado.) |
 | Tabela "Top termos" | `vw_em_alta` | `termos_txt` ("Termos") | `MAX(aumento)`, ordenado desc | — | Confirmado |
 | Mapa "Onde está em alta" | `vw_em_alta` | `uf_iso` (cor por `candidato_mencionado`) | `SUM(aumento)` (tamanho da bolha) | `candidato_mencionado <> "Nenhum"` (filtro "Candidato_True") | Confirmado |
 | Barras por Estado | `vw_em_alta` | `uf` (detalhe `candidato_mencionado`) | `SUM(aumento)` | `situacao = "Em alta agora"` + `termos_txt` preenchido, top 10 UFs | Confirmado (nome exato das duas condições do filtro composto não está nos prints, mantive a leitura mais direta de "vw_alta_situacao_altaagora" e "Termo_is_not_sull") |
@@ -42,12 +42,13 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 |---|---|---|
 | Lista "em alta" | `vw_pautas` | Uma linha por termo, sempre a coleta mais recente dele (`QUALIFY` pela data máxima por `termo_base`) |
 
-## O que ainda precisa de confirmação sua
+## Status
 
-1. **"Share de pauta eleitoral"**: é um campo que já existe fisicamente em `vw_em_alta` (criado direto na view, não é um campo calculado do Looker). Para pegar a fórmula exata, rode no console do BigQuery e me mande o resultado:
-   ```sql
-   SELECT ddl FROM `comite-tecnologia.analise_redes.INFORMATION_SCHEMA.VIEWS` WHERE table_name = 'vw_em_alta'
-   ```
-   Esta sessão não tem credencial do BigQuery pra rodar isso direto.
+Os 3 pontos que estavam pendentes (Share de pauta eleitoral, quebra Lula/Flávio na
+Evolução por hora, variação % do radar local) foram confirmados em 20/10 e já
+estão corrigidos no código e nas tabelas acima. Não há pendências abertas no
+momento.
 
-Os outros dois pontos (quebra Lula/Flávio na Evolução por hora e variação % do radar local) foram confirmados em 20/10 e já estão corrigidos no código e na tabela acima.
+A DDL de `vw_em_alta` (lida direto do BigQuery em 20/10) confirmou também que
+`tema`, `candidato_mencionado`, `rotulo` e `situacao` já são colunas nativas da
+view — o painel web lê todas direto dela, sem recalcular nada em Python.

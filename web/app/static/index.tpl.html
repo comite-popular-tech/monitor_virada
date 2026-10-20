@@ -497,8 +497,11 @@ function emaltaTable(base){
 }
 function curto(){
   const E=D.emalta.filter(r=>inR(r.d));const k=r=>r.r+'|'+r.uf;const u=a=>new Set(a.map(k)).size;const base=E.filter(r=>pass(r));
-  $('#k-pct').textContent=u(base)?Math.round(u(base.filter(r=>r.tema==='Eleição'))/u(base)*100)+'%':'–';
-  const fp=E.filter(r=>pass(r,['cand'])&&r.cand!=='Nenhum');const pie=[['Os dois','--cdois'],['Flávio / Bolsonaro','--cflav'],['Lula','--lula']].map(([n,c])=>[n,u(fp.filter(r=>r.cand===n)),c]);
+  // % com pauta Eleitoral: COUNT_DISTINCT(rotulo) com tema='Eleição' OU candidato <> 'Nenhum' / COUNT_DISTINCT(rotulo) (campo "Share de pauta eleitoral" de vw_em_alta)
+  const ur=a=>new Set(a.map(r=>r.r)).size;
+  $('#k-pct').textContent=ur(base)?Math.round(ur(base.filter(r=>r.tema==='Eleição'||r.cand!=='Nenhum'))/ur(base)*100)+'%':'–';
+  // pizza por candidato: SUM(volume)
+  const fp=E.filter(r=>pass(r,['cand'])&&r.cand!=='Nenhum');const sv=a=>a.reduce((s,r)=>s+r.vol,0);const pie=[['Os dois','--cdois'],['Flávio / Bolsonaro','--cflav'],['Lula','--lula']].map(([n,c])=>[n,sv(fp.filter(r=>r.cand===n)),c]);
   donut('#ch-pie',pie,'cand');legend('#lg-pie',pie.map(p=>[p[0],p[2]]),'cand');
   const byR={};base.forEach(r=>{byR[r.r]=Math.max(byR[r.r]||0,r.aum*(r.vol/1000))});
   const top=Object.entries(byR).sort((a,b)=>b[1]-a[1]).slice(0,30);
