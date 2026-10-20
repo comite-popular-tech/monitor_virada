@@ -16,10 +16,12 @@ navegador ──(login Google, IAP)──> Cloud Run: FastAPI ──> BigQuery (
 | Bloco do painel | Fonte | Recorte |
 |---|---|---|
 | Página 1: share, pizza, top termos, mapa e barras por UF, Evolução por hora, Em alta agora, Interesse 24h | `vw_em_alta` | últimas 24h a partir da leitura mais recente |
-| Radar local (p1) e Interesse por município (p2) | `gtrends_monitoramento_cidades` | última coleta, variação % contra a coleta anterior, sem âncora, só cidades |
+| Radar local (p1) e Interesse por município (p2) | `gtrends_monitoramento_cidades` | últimos 7 dias, sem âncora, só cidades |
 | Página 2: KPIs, Ranking, Acelerando, Onde agir, Segmento x conversa, Pauta por segmento | `vw_cidade_acao` | a view já traz a coleta mais recente |
 | Índice por tema (Ranking, Ações do dia) | `vw_territorio_ultimo` | só Saúde, Educação e Aposentadoria e renda |
 | Página 3 | `vw_pautas` | lista "em alta", última coleta de cada termo |
+
+**[../docs/DADOS.md](../docs/DADOS.md)** detalha, bloco a bloco, a dimensão, a métrica e o filtro exatos usados em cada gráfico/tabela — confirmado contra a configuração real do relatório no Looker Studio. Leia antes de mexer em `app/queries.py` ou `app/transform.py`: as fórmulas já foram ajustadas pra bater com o relatório original.
 
 Como os dados de cidade passam de centenas de milhares de linhas, o radar é filtrado no servidor e a página recebe só as 100 linhas de maior índice, com as opções dos filtros já calculadas.
 
