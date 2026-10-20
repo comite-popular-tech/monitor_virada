@@ -47,6 +47,35 @@ Regras que o próprio script verifica:
 
 Para mudar quais cidades recebem segmento, substitua `config/cidades_segmentacao.csv` mantendo as colunas `cod_tse, uf, municipio, municipio_norm, recorte, segmento, porte, rank_no_segmento_recorte`. O cruzamento é feito por `uf` + `municipio` (sem acento), então a grafia precisa ser a oficial do TSE/IBGE.
 
+## Carregar no BigQuery sem duplicar
+
+Este repositório só coleta e grava CSVs em `data/`; carregar isso no BigQuery é
+um passo separado. **Nunca carregue em modo append** (`WRITE_APPEND`/sem
+`--replace`): como `data/geo_map.csv` e `data/related_queries.csv` são
+cumulativos (o coletor nunca reseta, só acrescenta o que é novo), um load em
+append duplica o histórico inteiro toda vez que roda.
+
+Use `scripts/carregar_bigquery.sh`, que faz `bq load --replace` (substitui a
+tabela inteira pelo conteúdo atual do CSV a cada carga):
+
+```bash
+PROJETO=comite-tecnologia DATASET=analise_redes bash scripts/carregar_bigquery.sh
+```
+
+Como o coletor já garante que o CSV não tem a mesma busca duplicada no mesmo
+dia (`ja_coletadas()` em `coletor/armazenamento.py`), rodar esse script
+quantas vezes quiser no mesmo dia dá sempre a mesma tabela, nunca duplica
+linha. Ele carrega:
+- `geo_map.csv` → `gtrends_monitoramento_cidades`
+- `related_queries.csv` → `gtrends_monitoramento_temas`
+
+`gtrends_em_alta_brasil` (fonte de `vw_em_alta`) **não é gerada por este
+repositório** — é produzida por outro processo (provavelmente uma consulta
+agendada no próprio BigQuery, detectando o que está "em alta" a partir dos
+dados brutos). Se esse processo também estiver em modo append sobre dados que
+não mudam, a mesma correção (substituir em vez de somar) resolve lá também,
+mas a definição dele está fora deste repositório.
+
 ## Depois de 24/10
 
 O script não coleta nada fora do período. Para encerrar:
