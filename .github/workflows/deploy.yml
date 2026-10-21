@@ -1,0 +1,103 @@
+# Publica o painel (web/) no Cloud Run do comite-tecnologia. A infra (serviços, IAP, contas) é do Terraform do
+# iac-shared (terraform/monitor-virada); este workflow só constrói a imagem e troca a revisão.
+#
+# - dev (monitor-virada-dev): a cada push na main que mexe em web/, depois dos testes;
+# - produção (monitor-virada): só à mão (Actions > Deploy do painel > Run workflow, da main). O campo "commit" publica
+#   um commit anterior da main (rollback).
+#
+# Sem chave: a conta de deploy só aceita a main deste repositório (Workload Identity). Variáveis do repositório
+# (Settings > Secrets and variables > Actions > Variables), da saída "deploy" do Terraform:
+#   GCP_WIF_PROVIDER  provedor de Workload Identity
+#   GCP_SA_DEPLOY     conta de deploy
+#   IMAGEM            <região>-docker.pkg.dev/comite-tecnologia/monitor-virada/painel
+#   REGIAO            southamerica-east1
+name: Deploy do painel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit da main a publicar na produção (vazio = o topo da main). Serve para rollback.
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # Workload Identity Federation
+    # Um deploy por ambiente de cada vez; o de produção nunca é cancelado no meio
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_dispatch' && 'producao' || 'dev' }}
+      cancel-in-progress: false
+    env:
+      SERVICO: ${{ github.event_name == 'workflow_dispatch' && 'monitor-virada' || 'monitor-virada-dev' }}
+    steps:
+      # falha (vermelho) em vez de pular (verde) quando disparado de outro ramo: pulado parece publicado
+      - name: Só da main
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::Publica só da main; este disparo veio de $GITHUB_REF."; exit 1; }
+          for v in GCP_WIF_PROVIDER GCP_SA_DEPLOY IMAGEM REGIAO; do
+            [ -n "${!v}" ] || { echo "::error::Falta a variável $v do repositório (ver o cabeçalho deste arquivo)."; exit 1; }
+          done
+        env:
+          GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          GCP_SA_DEPLOY: ${{ vars.GCP_SA_DEPLOY }}
+          IMAGEM: ${{ vars.IMAGEM }}
+          REGIAO: ${{ vars.REGIAO }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # O campo "commit" aceita qualquer SHA: só vale o que está na história da main
+      - name: O commit está na main
+        run: git merge-base --is-ancestor HEAD origin/main || { echo "::error::o commit não está na main"; exit 1; }
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Testes
+        working-directory: web
+        run: |
+          pip install -q -r requirements-dev.txt
+          python -m pytest -q
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA_DEPLOY }}
+
+      - name: Imagem
+        working-directory: web
+        env:
+          IMAGEM: ${{ vars.IMAGEM }}
+          REGIAO: ${{ vars.REGIAO }}
+        run: |
+          gcloud auth configure-docker "$REGIAO-docker.pkg.dev" --quiet
+          tag="$IMAGEM:$(git rev-parse --short=12 HEAD)"
+          docker build -t "$tag" .
+          docker push "$tag"
+          echo "TAG=$tag" >>"$GITHUB_ENV"
+
+      # Só troca a imagem: o resto da configuração (conta, IAP, limites) é do Terraform
+      - name: Publicar
+        env:
+          REGIAO: ${{ vars.REGIAO }}
+        run: |
+          gcloud run deploy "$SERVICO" --image "$TAG" --region "$REGIAO" --quiet
+          url=$(gcloud run services describe "$SERVICO" --region "$REGIAO" --format='value(status.url)')
+          echo "::notice::$SERVICO publicado em $url ($TAG)"
