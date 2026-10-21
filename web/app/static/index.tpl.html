@@ -498,8 +498,11 @@ function emaltaTable(base){
 function curto(){
   const E=D.emalta.filter(r=>inR(r.d));const k=r=>r.r+'|'+r.uf;const u=a=>new Set(a.map(k)).size;const base=E.filter(r=>pass(r));
   // % com pauta Eleitoral: COUNT_DISTINCT(rotulo) com tema='Eleição' OU candidato <> 'Nenhum' / COUNT_DISTINCT(rotulo) (campo "Share de pauta eleitoral" de vw_em_alta)
+  // filtro "vw_alta_situacao_altaagora" do Looker original: ativa=true sempre, não segue o controle
+  // "Assunto ativo?" do topo (skip 'ativaTxt' do pass() e trava em r.ativa===true aqui mesmo)
   const ur=a=>new Set(a.map(r=>r.r)).size;
-  $('#k-pct').textContent=ur(base)?Math.round(ur(base.filter(r=>r.tema==='Eleição'||r.cand!=='Nenhum'))/ur(base)*100)+'%':'–';
+  const baseElei=E.filter(r=>pass(r,['ativaTxt'])&&r.ativa===true);
+  $('#k-pct').textContent=ur(baseElei)?Math.round(ur(baseElei.filter(r=>r.tema==='Eleição'||r.cand!=='Nenhum'))/ur(baseElei)*100)+'%':'–';
   // pizza por candidato: SUM(volume)
   const fp=E.filter(r=>pass(r,['cand'])&&r.cand!=='Nenhum');const sv=a=>a.reduce((s,r)=>s+r.vol,0);const pie=[['Os dois','--cdois'],['Flávio / Bolsonaro','--cflav'],['Lula','--lula']].map(([n,c])=>[n,sv(fp.filter(r=>r.cand===n)),c]);
   donut('#ch-pie',pie,'cand');legend('#lg-pie',pie.map(p=>[p[0],p[2]]),'cand');
