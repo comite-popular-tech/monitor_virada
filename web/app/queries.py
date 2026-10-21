@@ -5,8 +5,12 @@ As conversões com SAFE_CAST deixam as consultas funcionando mesmo que uma colun
 tenha sido carregada como texto (ex.: data_coleta, eh_ancora, indice_vs_ancora).
 """
 
-# Em alta: últimas 24h a partir da leitura mais recente (não de "agora"),
-# assim o painel não fica vazio quando a coleta atrasa.
+# Em alta: todo o conteúdo atual de vw_em_alta, sem recorte de janela fixa —
+# a view já é o estado "de agora" da base (muda sozinha a cada coleta nova),
+# igual ao controle "Data" do relatório original no Looker Studio, que por
+# padrão vem com todos os dias disponíveis marcados (sem filtro de período).
+# Cada linha carrega seu próprio dia de coleta (dia_ref é só o mais recente,
+# usado pro rótulo "atualização" no topo do painel).
 EM_ALTA = """
 WITH base AS (
   SELECT rotulo, uf, uf_iso, termos_txt, tema, candidato_mencionado, situacao,
@@ -17,10 +21,10 @@ WITH base AS (
   FROM `{p}.{d}.vw_em_alta`
 ), ult AS (SELECT MAX(inicio_ts) AS mx FROM base)
 SELECT b.*, EXTRACT(HOUR FROM b.inicio_ts AT TIME ZONE "America/Sao_Paulo") AS hora,
+       FORMAT_TIMESTAMP("%Y-%m-%d", b.inicio_ts, "America/Sao_Paulo") AS dia,
        FORMAT_TIMESTAMP("%Y-%m-%d", ult.mx, "America/Sao_Paulo") AS dia_ref,
        FORMAT_TIMESTAMP("%d/%m/%Y %H:%M", ult.mx, "America/Sao_Paulo") AS leitura_ref
 FROM base b CROSS JOIN ult
-WHERE b.inicio_ts >= TIMESTAMP_SUB(ult.mx, INTERVAL 24 HOUR)
 """
 
 # Mobilização: uma linha por cidade (a view já está na coleta mais recente)

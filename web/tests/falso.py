@@ -26,15 +26,20 @@ def em_alta():
             ("Lula", "Eleição", "Lula", "lula hoje, comício lula", 50000),
             ("Pagamento INSS outubro", "Aposentadoria e renda", "Nenhum", "inss calendário", 100000),
             ("Comando Vermelho", "Outros", "Nenhum", "comando vermelho, operação rio", 200000)]
+    # dois dias de coleta (igual ao controle "Data" do Looker, que por padrão
+    # vem com todos os dias disponíveis marcados), pra exercitar a lógica
+    # multi-dia de transform.em_alta/main._montar nos testes
+    dias = ["2026-10-18", "2026-10-19"]
     rows = []
     for rot, tema, cand, termos, vol in base:
         for uf in random.sample(["SP", "RJ", "MG", "BA", "PR", "RS", "PE"], 3):
             h = random.randint(0, 23)
+            d = random.choice(dias)
             rows.append(dict(rotulo=rot, uf=uf, uf_iso="BR-" + uf, termos_txt=termos, tema=tema,
                              candidato_mencionado=cand, situacao=random.choice(["Em alta agora", "Encerrada"]),
-                             inicio_ts=pd.Timestamp("2026-10-19 12:00", tz="UTC"), volume=float(vol),
+                             inicio_ts=pd.Timestamp(f"{d} 12:00", tz="UTC"), volume=float(vol),
                              aumento=float(random.choice([200, 500, 1000])), duracao_h=float(random.randint(1, 12)),
-                             hora=h, dia_ref="2026-10-19", leitura_ref="19/10/2026 15:00"))
+                             hora=h, dia=d, dia_ref="2026-10-19", leitura_ref="19/10/2026 15:00"))
     return pd.DataFrame(rows)
 
 

@@ -372,7 +372,9 @@ const sn=b=>b?'<span class="yes">SIM</span>':'<span class="no">Não</span>';
 const LABEL={q:'Termo pesquisado',ativaTxt:'Assunto ativo?',recorte:'Recorte',uf:'Estado',cand:'Candidato',tema:'Tema',r:'Assunto',mac:'Macrotema',local:'Local',c:'Cidade',seg:'Segmento',pri:'Prioridade',sinal:'Sinal de busca',tp:'Tema principal',nova:'Só novas',emalta:'Só em alta',ativa:'Só ativos'};
 const PAGEKEYS={curto:['uf','cand','tema','r','ativaTxt','q'],mob:['uf','recorte','seg','pri','sinal','c','tp'],pautas:['mac','nova','emalta']};
 
-let F={}, page='curto';const range={d0:D.days.at(-1),d1:D.days.at(-1)};
+// padrão = todos os dias disponíveis (igual ao controle "Data" do Looker original,
+// que por padrão vem com todas as datas marcadas, sem recorte)
+let F={}, page='curto';const range={d0:D.days[0],d1:D.days.at(-1)};
 try{const s=JSON.parse(localStorage.getItem('virada3')||'{}');if(s.page)page=s.page}catch(e){}
 const save=()=>{try{localStorage.setItem('virada3',JSON.stringify({page}))}catch(e){}};
 const inR=d=>d>=range.d0&&d<=range.d1;
