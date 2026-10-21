@@ -35,6 +35,18 @@ Todas as fontes vêm do dataset `comite-tecnologia.analise_redes`.
 |---|---|---|
 | KPIs, Ranking, Acelerando, Onde agir, Segmento × conversa, Pauta por segmento | `vw_cidade_acao` | A view já entrega a coleta mais recente, uma linha por cidade |
 | Índice por tema (usado no Ranking e em "Ações do dia") | `vw_territorio_ultimo` | Filtrado só em `macrotema IN ("Saúde","Educação","Aposentadoria e renda")`: os macrotemas de ataque (ATQ_*) e os de candidato nunca entram no "tema principal" de uma cidade |
+| Tabela "Ranking de cidades por tema" | combinação **"territorio_acao"** = `vw_cidade_acao` + `vw_territorio_ultimo` (join por cidade) | Confirmado 21/10 abrindo a definição da combinação no Looker. Dimensões: `cidade`, `ação prioritária` (de `vw_cidade_acao`), `tema` (de `vw_territorio_ultimo`); Métrica: `AVG(indice)`. Essa combinação não estava documentada antes — o painel web usa só `vw_cidade_acao`/`vw_territorio_ultimo` direto, sem reproduzir essa junção específica; conferir se o resultado bate. |
+
+### KPIs do topo (confirmado 21/10 direto na config de cada cartão)
+
+| KPI | Fonte | Métrica | Filtro |
+|---|---|---|---|
+| Cidades monitoradas | `vw_cidade_acao` | `COUNT_DISTINCT(cod_tse)` | sem filtro próprio |
+| Prioridade de ação | `vw_cidade_acao` | `COUNT_DISTINCT(cod_tse)` | "Filtro de prioridade_acao" |
+| Flávio ocupa a conversa | `vw_cidade_acao` | `COUNT_DISTINCT(cod_tse)` | "Flávio ocupa a conversa" |
+| cidades com tema subindo | `vw_cidade_acao` | `COUNT_DISTINCT(cod_tse)` | "tema subindo" |
+
+Os 4 KPIs usam a mesma métrica (contagem de cidades distintas); o que muda é só o filtro aplicado em cada cartão. Ainda não conferido: o conteúdo exato de cada filtro nomeado (ex. qual condição define "tema subindo" ou "Flávio ocupa a conversa") — os nomes dos filtros não expõem a fórmula na UI do Looker sem abrir cada um individualmente.
 
 ## Página 3 — Pautas
 
