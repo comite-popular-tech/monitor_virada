@@ -74,6 +74,29 @@ Fonte de todos os blocos: `vw_pautas`. Confirmado 21/10 direto na config de cada
 | "Pautas por tema que viram card" | `vw_pautas` | Mistura temas de Lula e Flávio na mesma tabela (campo `macrotema`: ATQ_LULA, ATQ_FLAVIO_PUSH, ATQ_FLAVIO_ORG, Candidatos etc.). Dimensões: macrotema, Termo, consulta, valor. Métrica: `MAX(Crescimento)`. Filtro: "Filtro de alvo" (instância própria, distinta das dos KPIs/tabelas acima — condição exata não conferida, mas como mistura os dois alvos, provavelmente é só `alvo IS NOT NULL` ou equivalente). Confirmado 21/10. |
 | "Consultas em alta por macrotema" (gráfico de barras) | `vw_pautas` | Dimensão: `macrotema` (N superiores = 10, resto agrupado como "Outros"). Métrica: `COUNT_DISTINCT(consulta)`. Filtro: "Filtro de alvo" (mesma observação acima). Confirmado 21/10. |
 
+## Página 4 — Monitoramento de ataques
+
+Fonte de todos os blocos: `vw_ataques`. Confirmado 21/10 direto na config de cada bloco.
+A página tem 3 linhas de gráficos: uma "geral" (sem filtro de alvo) e duas filtradas por candidato
+("Ataques ao Lula" / "Ataques ao Flávio"), cada uma com o mesmo padrão de 3 blocos
+(tabela de termos, barras por Estado, tabela dinâmica por Cidade).
+
+| Bloco | Dimensão | Métrica | Filtro |
+|---|---|---|---|
+| "Volume total no Brasil por dia" (barras empilhadas) | X=`dia`, detalhe=`alvo` | `AVG(indice_vs_ancora)` | nenhum |
+| "Volume por Estado" (geral) | Y=`uf`, detalhe=`alvo` (N superiores=10) | `AVG(indice_vs_ancora)` | nenhum |
+| "Volume por Cidade" (geral, tabela dinâmica) | linha=Cidade, coluna=`alvo` | `AVG(indice_vs_ancora)` | nenhum |
+| "Ataques ao Lula" (tabela) | `alvo`, `termo` | `AVG(indice_vs_ancora)` | "Alvo_Lula" |
+| "Volume por Estado" (grupo Lula) | Y=`uf`, detalhe=`alvo` | `AVG(indice_vs_ancora)` | "Organico_only" + "Alvo_Lula" |
+| "Volume por Cidade" (grupo Lula, tabela dinâmica) | linha=Cidade, coluna=`alvo` | `AVG(indice_vs_ancora)` | "Alvo_Lula" |
+| "Ataques ao Flávio" (tabela) | `alvo`, `termo` | `AVG(indice_vs_ancora)` | "Exc_Lula" |
+| "Volume por Estado" (grupo Flávio) | Y=`uf`, detalhe=`alvo` | `AVG(indice_vs_ancora)` | "Exc_Lula" (sem "Organico_only", diferente do grupo Lula) |
+| "Volume por Cidade" (grupo Flávio, tabela dinâmica) | linha=Cidade, coluna=`alvo` | `AVG(indice_vs_ancora)` | "Exc_Lula" |
+
+Achado: o grupo "Flávio" não usa um filtro simétrico tipo "Alvo_Flavio" — usa "Exc_Lula"
+(exclui Lula, não necessariamente restringe só a Flávio/Bolsonaro). E só o grupo "Lula"
+tem o filtro extra "Organico_only" na barra por Estado; o grupo "Flávio" equivalente não tem.
+
 ## Status
 
 Os 3 pontos que estavam pendentes (Share de pauta eleitoral, quebra Lula/Flávio na
