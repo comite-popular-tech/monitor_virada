@@ -56,11 +56,23 @@ Mesma fonte (`gtrends_monitoramento_cidades`), mesmo filtro base (`eh_ancora = f
 
 Os 4 KPIs usam a mesma métrica (contagem de cidades distintas); o que muda é só o filtro aplicado em cada cartão. Ainda não conferido: o conteúdo exato de cada filtro nomeado (ex. qual condição define "tema subindo" ou "Flávio ocupa a conversa") — os nomes dos filtros não expõem a fórmula na UI do Looker sem abrir cada um individualmente.
 
-## Página 3 — Pautas
+## Página 3 — Análise de Pautas
+
+Fonte de todos os blocos: `vw_pautas`. Confirmado 21/10 direto na config de cada bloco.
+
+| KPI | Métrica | Filtro |
+|---|---|---|
+| Explosões novas hoje | `COUNT_DISTINCT(consulta)` (campo calculado) | "explosao ultimo dia" |
+| Também em alta | `COUNT_DISTINCT(consulta)` | "Filtro de tambem_em_alta" |
+| Perguntas em alta sobre Lula | `COUNT_DISTINCT(consulta)` | "Filtro de alvo" (campo `alvo`, provavelmente `alvo = "Lula"`) |
+| Perguntas em alta sobre Flávio | `COUNT_DISTINCT(consulta)` | "Filtro de alvo" — mesmo nome de filtro do KPI de Lula, confirmado individualmente 21/10 (a condição exata, `alvo = "Flávio"`, não é exposta pela UI, só o nome do filtro) |
 
 | Bloco | Fonte | Observação |
 |---|---|---|
 | Lista "em alta" | `vw_pautas` | Uma linha por termo, sempre a coleta mais recente dele (`QUALIFY` pela data máxima por `termo_base`) |
+| Tabelas "O que perguntam sobre Lula" / "sobre Flávio" | `vw_pautas` | Dimensões (todas apelidos de campos reais): "Busca"=`consulta`, "Exposão"=`valor` (texto, ex. "Aumento repentino"), "Nova?"=`nova_sn`, "Em alta?"=campo calculado próprio (sem campo de origem simples, fórmula não exposta pela UI). Métrica: `MAX(Crescimento)`. Filtro: "Filtro de alvo" em ambas as tabelas (`alvo = "Lula"` numa, presumivelmente `alvo = "Flávio"` na outra — confirmado que as duas tabelas usam o mesmo nome de filtro, condição exata não exposta pela UI). Confirmado 21/10. |
+| "Pautas por tema que viram card" | `vw_pautas` | Mistura temas de Lula e Flávio na mesma tabela (campo `macrotema`: ATQ_LULA, ATQ_FLAVIO_PUSH, ATQ_FLAVIO_ORG, Candidatos etc.). Dimensões: macrotema, Termo, consulta, valor. Métrica: `MAX(Crescimento)`. Filtro: "Filtro de alvo" (instância própria, distinta das dos KPIs/tabelas acima — condição exata não conferida, mas como mistura os dois alvos, provavelmente é só `alvo IS NOT NULL` ou equivalente). Confirmado 21/10. |
+| "Consultas em alta por macrotema" (gráfico de barras) | `vw_pautas` | Dimensão: `macrotema` (N superiores = 10, resto agrupado como "Outros"). Métrica: `COUNT_DISTINCT(consulta)`. Filtro: "Filtro de alvo" (mesma observação acima). Confirmado 21/10. |
 
 ## Status
 
