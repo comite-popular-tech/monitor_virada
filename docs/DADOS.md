@@ -97,7 +97,22 @@ Achado: o grupo "Flávio" não usa um filtro simétrico tipo "Alvo_Flavio" — u
 (exclui Lula, não necessariamente restringe só a Flávio/Bolsonaro). E só o grupo "Lula"
 tem o filtro extra "Organico_only" na barra por Estado; o grupo "Flávio" equivalente não tem.
 
+## Página 5 — sem título (monitoramento de perfis sociais)
+
+Página solta, sem cabeçalho/identidade visual do painel (diferente das Páginas 1-4),
+provavelmente uma aba de apoio/depuração, não voltada ao usuário final.
+
+| Bloco | Fonte | Dimensão | Métrica | Filtro |
+|---|---|---|---|---|
+| Tabela única (perfil × contagem) | `social_media_atual` | `perfil` | `Record Count` | nenhum |
+
+Dimensão do período: `coletado_em (Data)`, filtro de período padrão "Automático" (todas as datas).
+Confirmado 21/10.
+
 ## Status
+
+Auditoria completa das 5 páginas do relatório concluída em 21/10 (filtro, dimensão
+e métrica de cada gráfico/tabela conferidos direto na configuração do Looker Studio).
 
 Os 3 pontos que estavam pendentes (Share de pauta eleitoral, quebra Lula/Flávio na
 Evolução por hora, variação % do radar local) foram confirmados em 20/10 e já
