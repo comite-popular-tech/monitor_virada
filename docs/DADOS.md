@@ -122,3 +122,16 @@ momento.
 A DDL de `vw_em_alta` (lida direto do BigQuery em 20/10) confirmou também que
 `tema`, `candidato_mencionado`, `rotulo` e `situacao` já são colunas nativas da
 view — o painel web lê todas direto dela, sem recalcular nada em Python.
+
+### Divergência deliberada: recorte de 24h em `vw_em_alta`
+
+A Página 1 é um painel de "o que está crescendo **agora**" (Google Trends, últimas
+24h), não um histórico acumulado da campanha — confirmado com a Renata em 22/10.
+O controle "Data" do Looker vem hoje com todos os dias disponíveis marcados, mas
+isso é só o comportamento padrão do próprio controle (cada dia novo nasce
+marcado) e não uma decisão deliberada de acumular — provavelmente ninguém
+desmarcou os dias antigos manualmente. Por isso o painel web aplica o recorte
+fixo de 24h em `EM_ALTA` (`app/queries.py`) de propósito, mesmo divergindo do
+estado atual desse controle específico no Looker; é a única divergência
+intencional documentada aqui, o resto do documento reflete o comportamento real
+do Looker.
