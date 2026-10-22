@@ -95,16 +95,10 @@ def erro(_req, _exc):
                         "<p style='color:#777'>Detalhes nos logs do Cloud Run.</p>", status_code=503)
 
 
-# chaves pesadas que crescem a cada dia que vw_em_alta acumula (sem recorte fixo
-# de 24h, ver queries.py): não vão inline no HTML, o template busca via /api/dados
-PESADAS = ("emalta", "hora", "h24", "cid", "pautas")
-
-
 @app.get("/", response_class=HTMLResponse)
 def pagina():
     d, _ = dados()
-    leve = {**{k: v for k, v in d.items() if k not in PESADAS}, **{k: [] for k in PESADAS}, "dadosApi": True}
-    js = json.dumps(leve, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    js = json.dumps(d, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return HTMLResponse(TEMPLATE.replace("/*DATA*/", js), headers=SEM_CACHE)
 
 

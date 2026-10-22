@@ -27,26 +27,15 @@ def _D(html):
     return json.loads(html[i:html.index(";\n", i)])
 
 
-def test_pagina_injeta_dados_leve(cli):
-    """A página inicial vem leve (emalta/hora/h24/cid/pautas vazios, dadosApi=True):
-    esses arrays crescem a cada dia que vw_em_alta acumula (sem recorte fixo de 24h,
-    ver queries.py) e por isso não vão mais inline no HTML -- o template busca o
-    resto via fetch('/api/dados') no browser (ver test_api_dados abaixo)."""
+def test_pagina_injeta_dados(cli):
     r = cli.get("/")
     assert r.status_code == 200 and "/*DATA*/" not in r.text
     D = _D(r.text)
-    assert D["radarApi"] is True and D["dadosApi"] is True and D["days"] == ["2026-10-18", "2026-10-19"]
+    assert D["radarApi"] is True and D["days"] == ["2026-10-18", "2026-10-19"]
     assert {"focus", "brasil", "cent", "emalta", "hora", "h24", "cid", "pautas"} <= set(D)
-    assert D["emalta"] == [] and D["hora"] == [] and D["h24"] == [] and D["cid"] == [] and D["pautas"] == []
-
-
-def test_api_dados_traz_o_pesado(cli):
-    cli.get("/")  # popula o cache
-    j = cli.get("/api/dados").json()
-    assert j["days"] == ["2026-10-18", "2026-10-19"]
     # duas datas de coleta nos dados falsos (ver tests/falso.py) -> 48 horas na série
-    assert len(j["hora"]) == 48 and all(e["d"] in j["days"] for e in j["emalta"])
-    c = {x["c"]: x for x in j["cid"]}
+    assert len(D["hora"]) == 48 and all(e["d"] in D["days"] for e in D["emalta"])
+    c = {x["c"]: x for x in D["cid"]}
     assert c["Sabará"]["x"] is not None and set(c["Sabará"]["idx"]) == {"Saúde", "Educação", "Aposentadoria e renda"}
     assert c["Munhoz de Mello"]["x"] is not None          # grafia diferente no IBGE (Munhoz de Melo)
 
@@ -77,12 +66,8 @@ def test_sem_html_injetavel(cli, monkeypatch):
     df.loc[0, "consulta"] = "</script><script>alert(1)</script>"
     monkeypatch.setitem(falso.FONTES, "pautas", lambda: df)
     r = cli.get("/")
-    # pautas não vai mais inline em "/" (ver test_pagina_injeta_dados_leve), mas a
-    # escapagem do JSON embutido no HTML continua valendo pro que ainda é inline
     assert "</script><script>alert(1)" not in r.text
-    # o conteúdo malicioso só aparece de fato via /api/dados -- que é JSON puro
-    # (content-type application/json), não HTML, então não tem risco de quebra de tag
-    assert cli.get("/api/dados").json()["pautas"][0]["q"].startswith("</script>")
+    assert _D(r.text)["pautas"][0]["q"].startswith("</script>")
 
 
 def test_consultas_usam_projeto_e_dataset():
