@@ -34,6 +34,27 @@ Mesma fonte (`gtrends_monitoramento_cidades`), mesmo filtro base (`eh_ancora = f
 
 ## Página 2 — Mobilização / território
 
+### Cobertura de municípios corrigida em 22/10
+
+O KPI "Cidades monitoradas" mostrava só 589, mas `gtrends_monitoramento_cidades`
+(tabela bruta por trás de `vw_territorio`/`vw_lula_flavio_cidade`) já tinha 1.912
+municípios distintos coletados — o gargalo era o campo `cod_tse`: só vinha
+preenchido pra 634 deles. Das 1.312 cidades sem `cod_tse`, a maioria já tinha
+`recorte`/`segmento` preenchidos (ou seja, já fazem parte da lista priorizada pelo
+coletor) e incluíam nomes comuns, inclusive capitais de estado (Manaus, Maceió,
+Rio Branco) — não era um recorte deliberado, era falha de correspondência de texto
+(acento/apóstrofo/caixa) no join contra `tse_municipios_2026`.
+
+Corrigido normalizando `uf + nome do município` (sem acento/pontuação/caixa) nas
+duas views — recuperou 1.211 das 1.312 cidades (92%), sem colisão de chave.
+Cobertura foi de 589 para ~1.669 municípios (SQL em `sql/vw_territorio.sql` e
+`sql/vw_lula_flavio_cidade.sql`, contexto completo em `sql/README.md`).
+
+**Isso não amplia a coleta do Google Trends** — só recupera municípios que o
+coletor já buscava mas ficavam de fora por `cod_tse` não casado. Cobrir os ~5.570
+municípios do Brasil de verdade exigiria ampliar o que o coletor (`trends_monitor`,
+repositório separado) busca — fora do escopo das views do BigQuery.
+
 | Bloco | Fonte | Observação |
 |---|---|---|
 | KPIs, Ranking, Acelerando, Onde agir, Segmento × conversa, Pauta por segmento | `vw_cidade_acao` | A view já entrega a coleta mais recente, uma linha por cidade |
