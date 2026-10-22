@@ -423,8 +423,8 @@ function hstack(el,cats,ser,{pct=true,lab=150,catKey,serKey}={}){const W=cw(el);
       if(w>28)s+=`<text pointer-events="none" x="${x+w/2}" y="${y+bh/2+4}" font-size="10.5" font-weight="700" text-anchor="middle" fill="${se.col==='--line'||se.col==='--t-outros'?'var(--fg)':'#fff'}">${pct?Math.round(v/tot*100)+'%':v}</text>`;x+=w})});
   $(el).innerHTML=cats.length?`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Barras empilhadas">${s}</svg>`:'<p class="sub">Sem dados neste recorte.</p>'}
 function hbars(el,rows,key,colFn,unit=''){if(!rows.length){$(el).innerHTML='<p class="sub">Sem dados neste recorte.</p>';return}
-  const W=cw(el),lab=Math.min(170,Math.round(W*.36)),slot=dh(el)?Math.max(30,(dh(el)-6)/rows.length):30,bh=Math.min(40,Math.round(slot*.55)),gap=slot-bh,H=Math.round(rows.length*slot+6),mx=Math.max(...rows.map(r=>r.v));let s='';
-  rows.forEach((r,i)=>{const y=i*(bh+gap)+2,w=(W-lab-70)*r.v/mx;s+=`<g data-f="${key}" data-v="${esc(r.n)}" data-tip="<b>${esc(r.n)}</b><br>${fmt(r.v)}${unit}"${dimIf(key,r.n)}><text x="${lab-8}" y="${y+bh/2+4}" font-size="12" text-anchor="end" fill="var(--fg)">${esc(r.n)}</text><rect x="${lab}" y="${y}" width="${w}" height="${bh}" rx="3" fill="var(${colFn(r)})"/><text x="${lab+w+6}" y="${y+bh/2+4}" font-size="11.5" fill="var(--muted)">${fmt(r.v)}${unit}</text></g>`});
+  const W=cw(el),lab=Math.min(Math.round(W*.45),Math.max(120,...rows.map(r=>String(r.lab||r.n).length*6.8+14))),slot=dh(el)?Math.max(30,(dh(el)-6)/rows.length):30,bh=Math.min(40,Math.round(slot*.55)),gap=slot-bh,H=Math.round(rows.length*slot+6),mx=Math.max(...rows.map(r=>r.v));let s='';
+  rows.forEach((r,i)=>{const y=i*(bh+gap)+2,w=(W-lab-70)*r.v/mx;s+=`<g data-f="${key}" data-v="${esc(r.n)}" data-tip="<b>${esc(r.n)}</b><br>${fmt(r.v)}${unit}"${dimIf(key,r.n)}><text x="${lab-8}" y="${y+bh/2+4}" font-size="12" text-anchor="end" fill="var(--fg)">${esc(r.lab||r.n)}</text><rect x="${lab}" y="${y}" width="${w}" height="${bh}" rx="3" fill="var(${colFn(r)})"/><text x="${lab+w+6}" y="${y+bh/2+4}" font-size="11.5" fill="var(--muted)">${fmt(r.v)}${unit}</text></g>`});
   $(el).innerHTML=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Barras">${s}</svg>`}
 function hourly(el,rows){const days=D.days.filter(inR);const n=days.length*24;const S={Lula:new Array(n).fill(0),'Flávio / Bolsonaro':new Array(n).fill(0)};
   rows.forEach(r=>{const i=days.indexOf(r.d)*24+r.h;if(r.cand==='Lula'||r.cand==='Os dois')S.Lula[i]++;if(r.cand==='Flávio / Bolsonaro'||r.cand==='Os dois')S['Flávio / Bolsonaro'][i]++});
@@ -435,7 +435,7 @@ function hourly(el,rows){const days=D.days.filter(inR);const n=days.length*24;co
   const bw=(W-pl-10)/n;for(let i=0;i<n;i++){const d=days[Math.floor(i/24)],h=i%24;s+=`<rect x="${X(i)-bw/2}" y="${pt}" width="${bw}" height="${H-pt-pb}" fill="transparent" data-tip="<b>${br(d)} · ${String(h).padStart(2,'0')}h</b><br>Lula: ${S.Lula[i]} · Flávio: ${S['Flávio / Bolsonaro'][i]}"/>`}
   $(el).innerHTML=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Assuntos por hora">${s}</svg>`}
 function map(el,rows){let s=D.focus.map(f=>`<path d="${f.d}" fill="${['SP','MG','PR','SC','GO'].includes(f.uf)?'var(--map-focus)':'var(--map-land)'}" stroke="var(--map-line)" stroke-width="1.4"/>`).join('');
-  rows=rows.filter(c=>c.x!=null&&c.y!=null);[...rows].sort((a,b)=>b.pri.localeCompare(a.pri)).forEach(c=>{const r=5+(c.int||0)*55;s+=`<circle data-f="c" data-v="${esc(c.c)}"${dimIf('c',c.c)} data-tip="<b>${esc(c.c)}</b> (${c.uf})<br>${esc(c.seg)}<br>${esc(c.pri)}<br>Busca − voto: ${c.dif==null?'sem dado':Math.round(c.dif*100)+' pp'}" cx="${c.x}" cy="${c.y}" r="${r.toFixed(1)}" fill="var(${PRIC[c.pri]})" fill-opacity=".72" stroke="var(--surface)" stroke-width="1.2"/>`});
+  rows=rows.filter(c=>c.x!=null&&c.y!=null);[...rows].sort((a,b)=>b.pri.localeCompare(a.pri)).forEach(c=>{const r=c.pri[0]==='4'?2.2:5+(c.int||0)*55;s+=`<circle data-f="c" data-v="${esc(c.c)}"${dimIf('c',c.c)} data-tip="<b>${esc(c.c)}</b> (${c.uf})<br>${esc(c.seg)}<br>${esc(c.pri)}<br>Busca − voto: ${c.dif==null?'sem dado':Math.round(c.dif*100)+' pp'}" cx="${c.x}" cy="${c.y}" r="${r.toFixed(1)}" fill="var(${PRIC[c.pri]})" fill-opacity=".72" stroke="var(--surface)" stroke-width="1.2"/>`});
   [...rows].filter(k=>k.pri[0]<='2').sort((a,b)=>(b.int||0)-(a.int||0)).slice(0,6).map(k=>k.c).forEach(n=>{const c=rows.find(k=>k.c===n);if(c)s+=`<text pointer-events="none" x="${c.x+9}" y="${c.y+4}" font-size="11" fill="var(--fg)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">${n}</text>`});
   $(el).innerHTML=`<svg class="chart" viewBox="0 0 600 520" role="img" aria-label="Mapa de prioridade">${s}</svg>`}
 const trow=(k,v,cells,extra='')=>`<tr tabindex="0" data-f="${k}" data-v="${esc(v)}" class="${isSel(k,v)?'sel':''} ${extra}">${cells}</tr>`;
@@ -496,7 +496,7 @@ const RADARF=[['local','Local'],['uf','Estado'],['alvo','Cidade Alvo'],['porte',
 /* ---------- Página 1 ---------- */
 function radarDraw(boxId,withDelta,r){const mx=Math.max(1,...r.map(x=>x.idx));
   $('#'+boxId).innerHTML=r.length?`<table><thead><tr>${withDelta?'<th>Tema</th><th>Cidade</th>':'<th>Cidade</th><th>Tema</th>'}<th>Termo</th><th data-tip="100 = mesmo volume de busca do termo de referência">Índice (ref. = 100)</th>${withDelta?'<th class="n">% Δ</th>':''}</tr></thead><tbody>${r.map(x=>`<tr>${withDelta?`<td>${esc(MACRO(x.mac))}</td><td>${esc(x.local)}</td>`:`<td>${esc(x.local)}</td><td>${esc(MACRO(x.mac))}</td>`}<td>${esc(x.termo)}</td><td style="white-space:nowrap" data-tip="${fmt(x.idx)}"><span style="font-family:var(--mono);display:inline-block;min-width:70px">${fmt(x.idx)}</span>${barCell(x.idx,mx)}</td>${withDelta?`<td class="n ${x.dl==null?'':x.dl>=0?'up':'down'}">${x.dl==null?'-':String(x.dl).replace('.',',')+'% '+(x.dl>=0?'↑':'↓')}</td>`:''}</tr>`).join('')}</tbody></table>`:'<p class="sub">Sem municípios com esse filtro.</p>'}
-const MACRO=m=>({ATQ_LULA:'Ataques ao Lula',ATQ_FLAVIO:'Ataques ao Flávio'}[m]||String(m||'').replace(/_/g,' ').toLowerCase().replace(/^./,c=>c.toUpperCase()));
+const MACRO=m=>({ATQ_LULA:'Ataques ao Lula',ATQ_FLAVIO:'Ataques ao Flávio',ATQ_FLAVIO_ORG:'Ataques ao Flávio (orgânico)',ATQ_FLAVIO_PUSH:'Ataques ao Flávio (impulsionado)'}[m]||String(m||'').replace(/_/g,' ').toLowerCase().replace(/^./,c=>c.toUpperCase()));
 const RSEQ={};
 function radarTable(boxId,sideId,withDelta){const st=LF[sideId];
   if(D.radarApi){const q=new URLSearchParams({...st});if(F.uf)q.set('pf_uf',F.uf);if(F.q)q.set('q',F.q);const seq=RSEQ[boxId]=(RSEQ[boxId]||0)+1;
@@ -566,19 +566,26 @@ function mob(){
   const all=cities();
   $('#k-mob').innerHTML=[['Cidades monitoradas',all.length],['Prioridade de ação',all.filter(c=>c.pri[0]==='1').length,1],['Flávio ocupa a conversa',all.filter(c=>c.sinal.startsWith('Flávio')).length],['cidades com tema subindo',all.filter(c=>c.tv>0).length]]
     .map(([l,v,a])=>`<div class="kpi${a?' alert':''}" style="text-align:center"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
-  const t1=$('#tema-rank').value;const rk=[...all].sort((a,b)=>(b.idx[t1]||0)-(a.idx[t1]||0));
-  $('#tb-rank').innerHTML=`<table><thead><tr><th>cidade</th><th>ação prioritária</th><th>tema</th><th class="n">indice</th></tr></thead><tbody>${rk.map(c=>trow('c',c.c,`<td><b>${esc(c.c)}</b></td><td>${esc(c.pri)}</td><td>${esc(t1)}</td><td class="n">${fmt(c.idx[t1]||0)}</td>`)).join('')}</tbody></table>`;
+  const t1=$('#tema-rank').value;const rk=[...all].filter(c=>c.idx[t1]!=null).sort((a,b)=>a.pri.localeCompare(b.pri)||(b.idx[t1]||0)-(a.idx[t1]||0));
+  $('#tb-rank').innerHTML=`<table><thead><tr><th>Cidade</th><th>Ação prioritária</th><th>Tema</th><th class="n">Índice</th></tr></thead><tbody>${rk.map(c=>trow('c',c.c,`<td><b>${esc(c.c)}</b></td><td>${esc(c.pri)}</td><td>${esc(t1)}</td><td class="n">${fmt(c.idx[t1]||0)}</td>`)).join('')}</tbody></table>`;
   const ac=[...all].sort((a,b)=>b.tv-a.tv);
-  $('#tb-acel').innerHTML=`<table><thead><tr><th>cidade</th><th>uf</th><th>ação</th><th>tema em alta</th><th class="n">variação alta</th></tr></thead><tbody>${ac.map(c=>trow('c',c.c,`<td><b>${esc(c.c)}</b></td><td>${c.uf}</td><td>${esc(c.pri)}</td><td>${esc(c.ts)}</td><td class="n">${String(c.tv).replace('.',',')}</td>`)).join('')}</tbody></table>`;
+  $('#tb-acel').innerHTML=`<table><thead><tr><th>Cidade</th><th>UF</th><th>Ação</th><th>Tema em alta</th><th class="n">Subiu (pontos)</th></tr></thead><tbody>${ac.map(c=>trow('c',c.c,`<td><b>${esc(c.c)}</b></td><td>${c.uf}</td><td>${esc(c.pri)}</td><td>${esc(c.ts)}</td><td class="n">${String(c.tv).replace('.',',')}</td>`)).join('')}</tbody></table>`;
   map('#ch-map',cities(['c']));
   $('#lg-map').innerHTML='<span class="mini"><b>intensidade</b> (tamanho)</span>'+Object.entries(PRIC).filter(([kk],i,a)=>a.findIndex(x=>x[1]===PRIC[kk]&&x[0].slice(0,1)===kk.slice(0,1))===i||kk.startsWith('2')).map(([kk,c])=>`<span data-f="pri" data-v="${esc(kk)}"><i style="background:var(${c})"></i>${esc(kk)}</span>`).join('');
   const t2=$('#tema-acoes').value;const ao=[...all].sort((a,b)=>(b.idx[t2]||0)-(a.idx[t2]||0));const mx2=Math.max(1,...ao.map(c=>c.idx[t2]||0));
-  $('#tb-acoes').innerHTML=`<table><thead><tr><th>estado</th><th>cidade</th><th>eleitorado</th><th>indice</th></tr></thead><tbody>${ao.map(c=>trow('c',c.c,`<td>${c.uf}</td><td><b>${esc(c.c)}</b></td><td>${esc(c.seg)}</td><td data-tip="${fmt(c.idx[t2]||0)}">${barCell(c.idx[t2]||0,mx2)}</td>`)).join('')}</tbody></table>`;
-  const cs=cities(['seg','sinal']);const segs=['4. Contenção','2. Disputa voto a voto','3. Reduzir diferença','1. Mobilizar base'].filter(s=>cs.some(c=>c.seg===s));const cols=['Sem dado de busca','Lula ocupa a conversa','Busca alinhada ao voto','Flávio ocupa a conversa'];
+  $('#tb-acoes').innerHTML=`<table><thead><tr><th>UF</th><th>Cidade</th><th>Segmento</th><th>Índice</th></tr></thead><tbody>${ao.map(c=>trow('c',c.c,`<td>${c.uf}</td><td><b>${esc(c.c)}</b></td><td>${esc(c.seg)||'<span class="no">—</span>'}</td><td data-tip="${fmt(c.idx[t2]||0)}" style="white-space:nowrap"><span style="font-family:var(--mono);display:inline-block;min-width:54px">${fmt(c.idx[t2]||0)}</span>${barCell(c.idx[t2]||0,mx2)}</td>`)).join('')}</tbody></table>`;
+  const SEGS=['1. Mobilizar base','2. Disputa voto a voto','3. Reduzir diferença','4. Contenção'];
+  const cs=cities(['seg','sinal']);const segs=SEGS.filter(s=>cs.some(c=>c.seg===s));const cols=['Sem dado de busca','Lula ocupa a conversa','Busca alinhada ao voto','Flávio ocupa a conversa'];
   const cnt=(s,c)=>cs.filter(x=>x.seg===s&&x.sinal===c).length;const mx=Math.max(1,...segs.flatMap(s=>cols.map(c=>cnt(s,c))));
-  $('#tb-segconv').innerHTML=`<table><thead><tr><th>segmento</th>${cols.map(c=>`<th class="n">${c}</th>`).join('')}</tr></thead><tbody>${segs.map(s=>`<tr><td data-f="seg" data-v="${esc(s)}">${esc(s)}</td>${cols.map(c=>{const v=cnt(s,c);const a=v/mx;return `<td class="n" data-f="seg" data-v="${esc(s)}" data-f2="sinal" data-v2="${esc(c)}" data-tip="${esc(s)} · ${esc(c)}: ${v}" style="background:color-mix(in srgb,var(--heat) ${Math.round(a*85)}%,transparent);color:${a>.5?'#fff':'var(--fg)'}">${v||'-'}</td>`}).join('')}</tr>`).join('')}</tbody></table>`;
-  const cp=cities(['seg','tp']);const sg=['4. Contenção','2. Disputa voto a voto','3. Reduzir diferença','1. Mobilizar base'];const tms=['Aposentadoria e renda','Saúde','Educação'];legend('#lg-pauta',tms.map(t=>[t,TEMA[t]]),'tp');
-  hstack('#ch-pauta',sg.map(s=>({v:s,short:s.slice(3).split(' ')[0]})),tms.map(n=>({n,col:TEMA[n],vals:sg.map(s=>cp.filter(c=>c.seg===s&&c.tp===n).length)})),{catKey:'seg',serKey:'tp'});
+  $('#tb-segconv').innerHTML=`<table><thead><tr><th>Segmento</th>${cols.map(c=>`<th class="n">${c}</th>`).join('')}</tr></thead><tbody>${segs.map(s=>`<tr><td data-f="seg" data-v="${esc(s)}">${esc(s)}</td>${cols.map(c=>{const v=cnt(s,c);const a=v/mx;return `<td class="n" data-f="seg" data-v="${esc(s)}" data-f2="sinal" data-v2="${esc(c)}" data-tip="${esc(s)} · ${esc(c)}: ${v}" style="background:color-mix(in srgb,var(--heat) ${Math.round(a*85)}%,transparent);color:${a>.5?'#fff':'var(--fg)'}">${v||'-'}</td>`}).join('')}</tr>`).join('')}</tbody></table>`;
+  // séries = temas principais que existem no recorte (o Looker usa os 10 maiores + Outros); antes só procurava
+  // Aposentadoria/Saúde/Educação e o gráfico ficava vazio quando o tema principal era outro
+  const cp=cities(['seg','tp']).filter(c=>c.seg);const sg=SEGS.filter(s=>cp.some(c=>c.seg===s));
+  const ct={};cp.forEach(c=>{if(c.tp)ct[c.tp]=(ct[c.tp]||0)+1});const tms=Object.keys(ct).sort((a,b)=>ct[b]-ct[a]).slice(0,10);
+  const PAL=['--p1','--p3','--p2','--s1','--t-saude','--t-educ','--dois','--p2b','--s2','--p4'];const cor=t=>TEMA[t]||PAL[tms.indexOf(t)%PAL.length];
+  legend('#lg-pauta',tms.map(t=>[t,cor(t)]),'tp');
+  hstack('#ch-pauta',sg.map(s=>({v:s,short:s.slice(3).split(' ')[0]})),tms.map(n=>({n,col:cor(n),vals:sg.map(s=>cp.filter(c=>c.seg===s&&c.tp===n).length)})),{catKey:'seg',serKey:'tp'});
+  if(tms.length===1)$('#lg-pauta').insertAdjacentHTML('beforeend',`<span class="mini">hoje todas as cidades têm o mesmo tema principal</span>`);
   radarTable('tb-radar2','rf2',false);
 }
 
@@ -587,14 +594,18 @@ const valorTxt=r=>r.mac==='Candidatos'||r.v>=6000?'Aumento repentino':'Mais '+fm
 function pautas(){
   const by={};D.pautas.filter(r=>inR(r.d)).forEach(r=>{const kk=r.alvo+'|'+r.q;const o=by[kk]||(by[kk]={...r,v:0,nova:false,emalta:false});o.v=Math.max(o.v,r.v);o.nova=o.nova||r.nova;o.emalta=o.emalta||r.emalta});
   const P=Object.values(by);const f=P.filter(r=>pass(r));
-  $('#k-pautas').innerHTML=[['Explosões novas hoje',f.filter(r=>r.nova&&r.expl&&r.alvo!=='Tema').length],['Também em alta',f.filter(r=>r.emalta).length],['Perguntas em alta sobre Lula',f.filter(r=>r.alvo==='Lula').length],['Perguntas em alta sobre Flávio',f.filter(r=>r.alvo==='Flávio / Bolsonaro').length]]
+  $('#k-pautas').innerHTML=[['Explosões no último dia (breakout)',f.filter(r=>r.nova&&r.expl&&r.alvo!=='Tema').length],['Também em alta no Brasil',f.filter(r=>r.emalta).length],['Perguntas em alta sobre Lula',f.filter(r=>r.alvo==='Lula').length],['Perguntas em alta sobre Flávio',f.filter(r=>r.alvo==='Flávio / Bolsonaro').length]]
     .map(([l,v])=>`<div class="kpi" style="text-align:center"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
-  const t=rows=>`<table><thead><tr><th>consulta</th><th>valor</th><th>nova</th><th>Em Alta</th><th class="n">Crescimento</th></tr></thead><tbody>${rows.sort((a,b)=>b.v-a.v).map(r=>`<tr class="${r.emalta?'hot':''}"><td>${esc(r.q)}</td><td>${valorTxt(r)}</td><td>${CALC.simNao(r.nova)}</td><td>${CALC.simNao(r.emalta)}</td><td class="n">+${fmt(r.v)}%</td></tr>`).join('')}</tbody></table>`;
+  const VAZIA=new Set(['o','a','os','as','do','da','dos','das','de','e','que','é','eh','em','no','na']);
+  const chaveQ=q=>String(q).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w&&!VAZIA.has(w)).sort().join(' ');
+  const agrupa=rows=>{const g={};rows.forEach(r=>{const k=chaveQ(r.q);const o=g[k];if(!o){g[k]={...r,vars:[r.q]};return}o.vars.push(r.q);o.nova=o.nova||r.nova;o.emalta=o.emalta||r.emalta;if(r.v>o.v){o.v=r.v;o.q=r.q}});return Object.values(g)};
+  const cresc=r=>r.v>=6000?`<span class="yes" data-tip="+${fmt(r.v)}%">EXPLODIU</span>`:'+'+fmt(r.v)+'%';
+  const t=rows=>`<table><thead><tr><th>Pergunta</th><th>Nova hoje</th><th>Em alta no Brasil</th><th class="n">Crescimento</th></tr></thead><tbody>${agrupa(rows).sort((a,b)=>b.v-a.v).map(r=>`<tr class="${r.emalta?'hot':''}"><td>${esc(r.q)}${r.vars.length>1?` <span class="no" data-tip="${esc(r.vars.slice(0,12).join(' · '))}">+${r.vars.length-1} ${r.vars.length>2?'variações':'variação'}</span>`:''}</td><td>${CALC.simNao(r.nova)}</td><td>${CALC.simNao(r.emalta)}</td><td class="n">${cresc(r)}</td></tr>`).join('')}</tbody></table>`;
   const fc=P.filter(r=>pass(r,['mac']));$('#tb-pl').innerHTML=t(fc.filter(r=>r.alvo==='Lula'));$('#tb-pf').innerHTML=t(fc.filter(r=>r.alvo==='Flávio / Bolsonaro'));
   const tm=f.filter(r=>r.alvo==='Tema').sort((a,b)=>b.v-a.v);
-  $('#tb-temas').innerHTML=`<table><thead><tr><th>macrotema</th><th>Termo</th><th>consulta</th><th>valor</th><th class="n">Valor</th></tr></thead><tbody>${tm.map(r=>trow('mac',r.mac,`<td>${esc(r.mac)}</td><td>${esc(r.base)}</td><td>${esc(r.q)}</td><td>${valorTxt(r)}</td><td class="n">${fmt(r.v)}</td>`)).join('')}</tbody></table>`;
+  $('#tb-temas').innerHTML=`<table><thead><tr><th>Tema</th><th>Termo</th><th>Pergunta</th><th class="n" data-tip="crescimento da busca">Crescimento</th></tr></thead><tbody>${tm.map(r=>trow('mac',r.mac,`<td>${esc(MACRO(r.mac))}</td><td>${esc(r.base)}</td><td>${esc(r.q)}</td><td class="n">${cresc(r)}</td>`)).join('')}</tbody></table>`;
   const mc={};P.filter(r=>r.alvo==='Tema'&&pass(r,['mac'])).forEach(r=>mc[r.mac]=(mc[r.mac]||0)+1);
-  hbars('#ch-macro',Object.entries(mc).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v),'mac',()=> '--brand');
+  hbars('#ch-macro',Object.entries(mc).map(([n,v])=>({n,v,lab:MACRO(n)})).sort((a,b)=>b.v-a.v),'mac',()=> '--brand');
 }
 /* ---------- controle ---------- */
 const R={curto,mob,pautas};
@@ -628,7 +639,7 @@ function fitPass(){let again=false;const TH=t=>Math.min(t.scrollHeight,parseFloa
 function fit(){fitReset();if(fitPass()){R[page]();enhanceTables();fitPass()}}
 function render(){Object.keys(F).forEach(k=>{if(!PAGEKEYS[page].includes(k))delete F[k]});dates();pageFilters();activeChips();
   document.querySelectorAll('[data-page]').forEach(s=>s.hidden=s.id!=='p-'+page);document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.p===page));
-  $('#pgtitle').textContent='MONITOR DA VIRADA :: '+SUB[page];$('#subtitle').textContent='';$('#whenlbl').textContent=page==='curto'?'atualização':'Coleta';R[page]();enhanceTables();fit();execSummary();save()}
+  $('#pgtitle').textContent='MONITOR DA VIRADA :: '+SUB[page];$('#subtitle').textContent='';$('#whenlbl').textContent='atualização';R[page]();enhanceTables();fit();execSummary();save()}
 
 $('#tema-rank').onchange=()=>{mob();enhanceTables();fit()};$('#tema-acoes').onchange=()=>{mob();enhanceTables();fit()};
 document.addEventListener('click',e=>{
@@ -654,7 +665,7 @@ function snapshot(){
     const tp={};c.forEach(x=>tp[x.tp]=(tp[x.tp]||0)+1);const t1=Object.entries(tp).sort((a,b)=>b[1]-a[1])[0];
     return {bul:[`<b>${c.length}</b> cidades no recorte; <b>${p1.length}</b> em Prioridade 1${p1.length?': '+p1.slice(0,4).map(x=>esc(x.c)).join(', '):''}.`,
       `O Flávio ocupa a conversa em <b>${fl.length}</b> cidades${fl.length?' ('+fl.slice(0,4).map(x=>esc(x.c)).join(', ')+')':''}.`,
-      t1?`Tema principal mais comum: <b>${esc(t1[0])}</b> (${t1[1]} cidades).`:'',
+      t1?(t1[1]===c.length?`Todas as ${c.length} cidades têm o mesmo tema principal hoje (<b>${esc(t1[0])}</b>).`:`Tema principal mais comum: <b>${esc(t1[0])}</b> (${t1[1]} de ${c.length} cidades).`):'',
       sub.length?`Mais aceleração: ${sub.map(x=>`<b>${esc(x.c)}</b> em ${esc(x.ts)} (+${String(x.tv).replace('.',',')})`).join(', ')}.`:''].filter(Boolean),
       ctx:{pagina:'Mobilização por município',cidades:c.slice(0,60).map(x=>({cidade:x.c,uf:x.uf,segmento:x.seg,prioridade:x.pri,sinal_busca:x.sinal,tema_principal:x.tp,indices:x.idx,tema_subindo:x.ts,subiu_pontos:x.tv,busca_menos_voto_pp:x.dif==null?null:Math.round(x.dif*100)}))}}}
   const by={};D.pautas.filter(r=>inR(r.d)).forEach(r=>{const k=r.alvo+'|'+r.q;const o=by[k]||(by[k]={...r,v:0,nova:false,emalta:false});o.v=Math.max(o.v,r.v);o.nova=o.nova||r.nova;o.emalta=o.emalta||r.emalta});
