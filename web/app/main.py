@@ -53,7 +53,12 @@ def _montar():
     ea = r["em_alta"]
     dia = ea["dia_ref"].iloc[0] if len(ea) else agora.strftime("%Y-%m-%d")
     emalta, hora, h24 = transform.em_alta(ea, dia)
-    dados = dict(GEO, days=[dia], emalta=emalta, hora=hora, h24=h24,
+    # D.days: todos os dias presentes em vw_em_alta (não só o mais recente) —
+    # a página usa isso pra montar a janela padrão de exibição (ver index.tpl.html)
+    dias = sorted({str(d) for d in ea["dia"].dropna().unique()}) if len(ea) and "dia" in ea else [dia]
+    if dia not in dias:
+        dias = sorted(set(dias) | {dia})
+    dados = dict(GEO, days=dias, emalta=emalta, hora=hora, h24=h24,
                  cid=transform.cidades(r["cidade_acao"], r["territorio"], dia),
                  pautas=transform.pautas(r["pautas"], dia), radar=[], radarApi=True,
                  atualizado=agora.strftime("%d/%m/%Y %H:%M"))

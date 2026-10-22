@@ -65,43 +65,60 @@ def _b(v):
 def em_alta(df, dia):
     """Monta as linhas de vw_em_alta e as duas séries por hora do Looker.
 
-    Evolução por hora e Interesse 24h usam SUM(Aumento), não volume, e só entram
-    assuntos com situacao="Em alta agora" e termos_txt preenchido (os filtros
-    "vw_alta_situacao_altaagora" e "Termo_is_not_sull" do relatório original).
+    df traz todo o conteúdo atual de vw_em_alta (sem recorte de 24h), cada linha
+    com seu próprio dia de coleta (`r.dia`) — não um único `dia` fixo para tudo.
+    `dia` aqui só serve de fallback para quando `r.dia` vem vazio.
 
-    A Evolução por hora é dimensão=rotulo, SUM(aumento), N superiores=10 (confirmado
-    no Looker); as duas linhas Lula/Flávio Bolsonaro são os próprios rótulos das
-    buscas diretas pelo nome do candidato (grupo CAND no coletor), não uma soma por
-    candidato_mencionado. Veja docs/DADOS.md.
+    Evolução por hora e Interesse 24h usam SUM(Aumento), não volume, mas cada
+    uma com seu próprio filtro fixo, confirmado direto na config de cada
+    gráfico no Looker (docs/DADOS.md):
+    - Evolução por hora: só "Candidato_True" (candidato_mencionado <> "Nenhum").
+    - Interesse 24h: "Exc_rotulo_other" (rótulo genérico "other" fora) +
+      "ex_fim_sem_data" (linha precisa ter duração/fim preenchido).
+    Nenhuma das duas usa situacao="Em alta agora" nem termos_txt preenchido —
+    esse filtro ("vwalta_inc_ativa_true" + "Termo_is_not_sull") é da tabela
+    Termos × Horas, aplicado no frontend (ver index.tpl.html).
+
+    A Evolução por hora é dimensão=início (data e hora), SUM(aumento), N
+    superiores=10 (confirmado no Looker); as duas linhas Lula/Flávio Bolsonaro
+    são os próprios rótulos das buscas diretas pelo nome do candidato (grupo
+    CAND no coletor), não uma soma por candidato_mencionado. Veja docs/DADOS.md.
     """
     LULA, FLAVIO = "lula", "flávio bolsonaro"
     rows, hora, h24 = [], defaultdict(lambda: [0.0, 0.0]), defaultdict(float)
+    dias = set()
     for r in df.itertuples(index=False):
         cand = _nn(r.candidato_mencionado) or "Nenhum"
         vol = float(_nn(r.volume) or 0)
         aum = float(_nn(r.aumento) or 0)
         h = int(_nn(r.hora) or 0)
+        d = _nn(getattr(r, "dia", None)) or dia
         ativa = _nn(r.situacao) == "Em alta agora"
         termo = _nn(r.termos_txt) or ""
         rot = r.rotulo
-        rows.append(dict(d=dia, geo=_nn(r.uf_iso) or "", uf=_nn(r.uf) or "", r=rot, t=termo,
+        dur_raw = _nn(r.duracao_h)
+        dias.add(d)
+        rows.append(dict(d=d, geo=_nn(r.uf_iso) or "", uf=_nn(r.uf) or "", r=rot, t=termo,
                          tema=_nn(r.tema) or "Outros", cand=cand, vol=vol, aum=aum, h=h,
-                         dur=float(_nn(r.duracao_h) or 0), ativa=ativa))
-        if ativa and termo:
+                         dur=float(dur_raw or 0), ativa=ativa))
+        if cand != "Nenhum":
             rn = _norm(rot)
             if rn == LULA:
-                hora[h][0] += aum
+                hora[(d, h)][0] += aum
             elif rn == FLAVIO or rn == "bolsonaro":
-                hora[h][1] += aum
-            h24[(h, rot)] += aum
-    # Evolução por hora: soma do Aumento (%) dos rótulos "lula" e "flávio bolsonaro"/"bolsonaro"
-    serie = [dict(d=dia, h=h, lula=round(hora[h][0], 1), flavio=round(hora[h][1], 1)) for h in range(24)]
-    # Interesse 24h: 10 rótulos de maior soma de Aumento, por hora
+                hora[(d, h)][1] += aum
+        if _norm(rot) not in ("", "other", "outro", "outros") and dur_raw is not None:
+            h24[(d, h, rot)] += aum
+    # Evolução por hora: soma do Aumento (%) dos rótulos "lula" e "flávio bolsonaro"/"bolsonaro",
+    # uma série de 24h por dia presente nos dados (igual ao eixo "início" do Looker)
+    serie = [dict(d=d, h=h, lula=round(hora[(d, h)][0], 1), flavio=round(hora[(d, h)][1], 1))
+             for d in sorted(dias) for h in range(24)]
+    # Interesse 24h: 10 rótulos de maior soma de Aumento no recorte inteiro (todos os dias)
     tot = defaultdict(float)
-    for (h, rot), v in h24.items():
+    for (d, h, rot), v in h24.items():
         tot[rot] += v
     top = {r for r, _ in sorted(tot.items(), key=lambda x: -x[1])[:10]}
-    v24 = [dict(d=dia, h=h, r=rot, v=round(v, 1)) for (h, rot), v in sorted(h24.items()) if rot in top]
+    v24 = [dict(d=d, h=h, r=rot, v=round(v, 1)) for (d, h, rot), v in sorted(h24.items()) if rot in top]
     return rows, serie, v24
 
 

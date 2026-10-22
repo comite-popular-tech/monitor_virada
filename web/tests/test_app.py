@@ -31,9 +31,10 @@ def test_pagina_injeta_dados(cli):
     r = cli.get("/")
     assert r.status_code == 200 and "/*DATA*/" not in r.text
     D = _D(r.text)
-    assert D["radarApi"] is True and D["days"] == ["2026-10-19"]
+    assert D["radarApi"] is True and D["days"] == ["2026-10-18", "2026-10-19"]
     assert {"focus", "brasil", "cent", "emalta", "hora", "h24", "cid", "pautas"} <= set(D)
-    assert len(D["hora"]) == 24 and all(e["d"] == "2026-10-19" for e in D["emalta"])
+    # duas datas de coleta nos dados falsos (ver tests/falso.py) -> 48 horas na série
+    assert len(D["hora"]) == 48 and all(e["d"] in D["days"] for e in D["emalta"])
     c = {x["c"]: x for x in D["cid"]}
     assert c["Sabará"]["x"] is not None and set(c["Sabará"]["idx"]) == {"Saúde", "Educação", "Aposentadoria e renda"}
     assert c["Munhoz de Mello"]["x"] is not None          # grafia diferente no IBGE (Munhoz de Melo)
