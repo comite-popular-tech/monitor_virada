@@ -400,7 +400,9 @@ function toggle(k,v,k2,v2){if(isSel(k,v)&&(k2===undefined||isSel(k2,v2))){delete
 
 /* ---------- tooltip ---------- */
 const tip=$('#tip');
-document.addEventListener('pointerover',e=>{const t=e.target.closest('[data-tip]');if(!t){tip.hidden=true;return}tip.innerHTML=t.dataset.tip;tip.hidden=false});
+// o texto do tooltip vem de termos de busca (dado externo): escapa tudo e só devolve <b>, </b> e <br>
+const tipSeguro=h=>String(h).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/&lt;(\/?b|br)&gt;/g,'<$1>');
+document.addEventListener('pointerover',e=>{const t=e.target.closest('[data-tip]');if(!t){tip.hidden=true;return}tip.innerHTML=tipSeguro(t.dataset.tip);tip.hidden=false});
 document.addEventListener('pointermove',e=>{if(tip.hidden)return;const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tip.style.left=x+'px';tip.style.top=y+'px'});
 document.addEventListener('pointerleave',()=>tip.hidden=true);
 
