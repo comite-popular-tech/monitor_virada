@@ -494,7 +494,14 @@ function radarTable(boxId,sideId,withDelta){const st=LF[sideId];
   radarDraw(boxId,withDelta,pr.filter(x=>lpass(x,st)).sort((a,b)=>b.idx-a.idx).slice(0,100))}
 function emaltaTable(base){
   blockFilters('secf-emalta',LF.emalta,base,[['r','rotulo'],['uf','Estado'],['cand','Candidato Mencionado'],['tema','Tema']],()=>emaltaTable(base));
-  const rows=base.filter(r=>lpass(r,LF.emalta)).sort((a,b)=>b.vol-a.vol);const mxv=Math.max(1,...rows.map(r=>r.vol)),mxu=Math.max(1,...rows.map(r=>r.aum));
+  // "Buscas em alta por Estado" no Looker não tem coluna de Estado: é uma linha por
+  // (Tema, Rótulo, Candidato, Termos) com MAX(aumento)/MAX(volume) -- Estado é só um
+  // dos 4 filtros do bloco, não uma dimensão da tabela (confirmado 21/10 direto no Looker)
+  const by={};
+  base.filter(r=>lpass(r,LF.emalta)).forEach(r=>{
+    const k=r.r+'|'+r.tema+'|'+r.cand+'|'+r.t;const o=by[k]||(by[k]={tema:r.tema,r:r.r,cand:r.cand,t:r.t,aum:0,vol:0});
+    o.aum=Math.max(o.aum,r.aum);o.vol=Math.max(o.vol,r.vol)});
+  const rows=Object.values(by).sort((a,b)=>b.vol-a.vol);const mxv=Math.max(1,...rows.map(r=>r.vol)),mxu=Math.max(1,...rows.map(r=>r.aum));
   $('#tb-emalta').innerHTML=rows.length?`<table><thead><tr><th>Tema</th><th>Rotulo</th><th>Candidato</th><th>Termos</th><th>Aumento</th><th>Volume</th></tr></thead><tbody>${rows.slice(0,100).map(r=>trow('r',r.r,`<td>${esc(r.tema)}</td><td><b>${esc(r.r)}</b></td><td>${esc(r.cand)}</td><td><div class="q">${esc(r.t)}</div></td><td data-tip="+${fmt(r.aum)}%">${barCell(r.aum,mxu)}</td><td data-tip="${fmt(r.vol)}+">${barCell(r.vol,mxv,'--p2')}</td>`,r.tema==='Eleição'?'hot':'')).join('')}</tbody></table>`:'<p class="sub">Nenhum assunto neste recorte.</p>';
 }
 function curto(){
