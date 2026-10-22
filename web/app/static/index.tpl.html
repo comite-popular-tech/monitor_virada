@@ -518,7 +518,10 @@ function curto(){
   const ser=[['Lula','--lula'],['Os dois','--cdois'],['Flávio / Bolsonaro','--cflav']];legend('#lg-ufbar',ser,'cand');
   vgroup('#ch-ufbar',ufs,ser.map(([n,c])=>({n,col:c,vals:ufs.map(x=>sum[x][n])})),{catKey:'uf',serKey:'cand'});
   legend('#lg-evo',[['Lula','--lula'],['Flávio Bolsonaro','--evoflav']]);area('#ch-evo',D.days.filter(inR));
-  const nov=[...base].filter(r=>r.cand!=='Nenhum').sort((a,b)=>a.dur-b.dur||b.aum-a.aum);const mxa=Math.max(1,...nov.map(r=>r.aum));
+  // Termos x Horas: filtro travado no gráfico do Looker ("vwalta_inc_ativa_true" +
+  // "Termo_is_not_sull"), não segue o controle "Assunto ativo?" do topo
+  // (skip 'ativaTxt' do pass() e trava em r.ativa===true aqui mesmo, igual ao KPI eleitoral)
+  const nov=E.filter(r=>pass(r,['ativaTxt'])&&r.ativa===true&&r.t).sort((a,b)=>a.dur-b.dur||b.aum-a.aum);const mxa=Math.max(1,...nov.map(r=>r.aum));
   $('#tb-novos').innerHTML=`<table><thead><tr><th>Termos</th><th class="n">Horas</th><th>Aumento</th></tr></thead><tbody>${nov.slice(0,100).map(r=>trow('r',r.r,`<td>${esc(r.t)}</td><td class="n">${r.dur}</td><td data-tip="+${fmt(r.aum)}%">${barCell(r.aum,mxa)}</td>`)).join('')}</tbody></table>`;
   emaltaTable(base);
   radarTable('tb-radar','rf1',true);
