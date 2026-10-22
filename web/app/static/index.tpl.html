@@ -348,11 +348,18 @@ const CALC={
   // Sim/Não no lugar de true/false
   simNao:b=>b?'Sim':'Não'
 };
-D.emalta.forEach(r=>{r.uf=r.uf||CALC.estado(r.geo);r.cand=r.cand||CALC.candidato(r.r,r.t);r.tema=CALC.temaAjustado(r.tema||CALC.tema(r.r,r.t));r.ativaTxt=CALC.simNao(r.ativa)});
-(D.radar||[]).forEach(r=>{r.uf=r.uf||CALC.estado(r.geo);r.mac=CALC.temaAjustado(r.mac);r.recorte=r.recorte||CALC.recorte(r.uf)});
-D.cid.forEach(r=>{const idx={};for(const[k,v]of Object.entries(r.idx))idx[CALC.temaAjustado(k)]=v;r.idx=idx;r.tp=CALC.temaAjustado(r.tp||(Object.entries(idx).sort((a,b)=>b[1]-a[1])[0]||['-'])[0]);r.ts=CALC.temaAjustado(r.ts||'-');r.tv=r.tv??0;
-  r.sinal=r.sinal||CALC.sinal(r.dif);r.pri=r.pri||CALC.prioridade(r.seg,r.dif);r.int=CALC.intensidade(r.dif);r.recorte=r.recorte||CALC.recorte(r.uf)});
-D.pautas.forEach(r=>{r.mac=CALC.temaAjustado(r.mac);r.alvo=r.alvo||CALC.alvo(r.base);r.expl=r.expl??CALC.explosao(r.v)});
+// D.dadosApi=true: emalta/hora/h24/cid/pautas chegam vazios aqui e são buscados
+// via fetch('/api/dados') (ver final do arquivo) -- sem isso, inline no HTML, a
+// página cresce a cada dia que vw_em_alta acumula (sem recorte fixo de 24h).
+// enrich() roda nos dados que já tem (inline ou vindos do fetch).
+function enrich(){
+  D.emalta.forEach(r=>{r.uf=r.uf||CALC.estado(r.geo);r.cand=r.cand||CALC.candidato(r.r,r.t);r.tema=CALC.temaAjustado(r.tema||CALC.tema(r.r,r.t));r.ativaTxt=CALC.simNao(r.ativa)});
+  (D.radar||[]).forEach(r=>{r.uf=r.uf||CALC.estado(r.geo);r.mac=CALC.temaAjustado(r.mac);r.recorte=r.recorte||CALC.recorte(r.uf)});
+  D.cid.forEach(r=>{const idx={};for(const[k,v]of Object.entries(r.idx))idx[CALC.temaAjustado(k)]=v;r.idx=idx;r.tp=CALC.temaAjustado(r.tp||(Object.entries(idx).sort((a,b)=>b[1]-a[1])[0]||['-'])[0]);r.ts=CALC.temaAjustado(r.ts||'-');r.tv=r.tv??0;
+    r.sinal=r.sinal||CALC.sinal(r.dif);r.pri=r.pri||CALC.prioridade(r.seg,r.dif);r.int=CALC.intensidade(r.dif);r.recorte=r.recorte||CALC.recorte(r.uf)});
+  D.pautas.forEach(r=>{r.mac=CALC.temaAjustado(r.mac);r.alvo=r.alvo||CALC.alvo(r.base);r.expl=r.expl??CALC.explosao(r.v)})
+}
+enrich();
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -658,8 +665,15 @@ function applyTable(box){const tb=box.querySelector('table');const st=TS[box.id]
   tb.querySelectorAll('thead tr:first-child th').forEach((th,i)=>{th.querySelector('.ar')?.remove();if(st.sort&&st.sort[0]===i)th.insertAdjacentHTML('beforeend',`<span class="ar">${st.sort[1]>0?'▲':'▼'}</span>`)});
   let note=box.nextElementSibling?.classList?.contains('trows')?box.nextElementSibling:null;const vis=rows.filter(r=>!r.hidden).length;
   if(Object.keys(st.f).length){if(!note){note=document.createElement('div');note.className='trows';box.after(note)}note.textContent=`${vis} de ${rows.length} linhas com o filtro da coluna`}else note?.remove()}
-if(D.atualizado){const f=document.querySelector('footer');if(f)f.textContent='Fonte: BigQuery (comite-tecnologia.analise_redes) · atualizado em '+D.atualizado+' · sempre a última coleta de cada fonte.'}
-const h=(location.hash||'').slice(1);if(R[h])page=h;render();
+function setFooter(){if(D.atualizado){const f=document.querySelector('footer');if(f)f.textContent='Fonte: BigQuery (comite-tecnologia.analise_redes) · atualizado em '+D.atualizado+' · sempre a última coleta de cada fonte.'}}
+const h=(location.hash||'').slice(1);if(R[h])page=h;
+if(D.dadosApi){
+  // payload inicial veio leve (emalta/hora/h24/cid/pautas vazios): busca o resto
+  // async pra não embutir tudo no HTML (ver nota em enrich())
+  fetch('api/dados').then(r=>r.json()).then(j=>{
+    Object.assign(D,j);range.d0=D.days[0];range.d1=D.days.at(-1);enrich();setFooter();render()
+  }).catch(()=>{setFooter();render()})
+}else{setFooter();render()}
 addEventListener('hashchange',()=>{const x=location.hash.slice(1);if(R[x]&&x!==page){page=x;F={};render()}});
 let rz,lw=innerWidth;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(Math.abs(innerWidth-lw)>40){lw=innerWidth;fitReset();R[page]();enhanceTables();fit()}},200)});
 </script>
