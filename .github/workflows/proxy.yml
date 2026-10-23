@@ -1,0 +1,67 @@
+# Publica o Worker monitor-virada-proxy (proxy/), que serve o painel de produção em https://monitor.boralula.org, na
+# conta kadu da Cloudflare:
+# - push na main que mexe em proxy/ ou neste arquivo: publica sozinho;
+# - Actions > Proxy do monitor.boralula.org > Run workflow: da main, com o commit escolhido (rollback).
+#
+# O painel em si não sai por aqui: é o deploy.yml (Cloud Run). Este Worker só repassa os pedidos para ele.
+#
+# Configuração do repositório (Settings > Secrets and variables > Actions), os mesmos nomes do mural-comite-tech:
+#   segredo  CLOUDFLARE_KADU_TOKEN       token da conta kadu com Workers Scripts Edit (conta) e Workers Routes Edit (zona
+#                                        boralula.org)
+#   segredo  CLOUDFLARE_KADU_ACCOUNT_ID  id da conta kadu
+name: Proxy do monitor.boralula.org
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - proxy/**
+      - .github/workflows/proxy.yml
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit da main a publicar (vazio = o topo da main). Serve para rollback.
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proxy-monitor
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ${{ vars.RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    steps:
+      - name: Só da main
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::Publica só da main; este disparo veio de $GITHUB_REF."; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: O commit está na main
+        run: git merge-base --is-ancestor HEAD origin/main || { echo "::error::O commit não está na main."; exit 1; }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Publicar
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_KADU_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_KADU_ACCOUNT_ID }}
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::Falta o segredo CLOUDFLARE_KADU_TOKEN."; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "::error::Falta o segredo CLOUDFLARE_KADU_ACCOUNT_ID."; exit 1; }
+          npx --yes wrangler@4.151.3 deploy --config proxy/wrangler.jsonc
+      - name: Conferir o endereço
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            code=$(curl -s -m 30 -o /dev/null -w '%{http_code}' https://monitor.boralula.org/ || true)
+            [ "$code" = 200 ] && exit 0
+            sleep 10
+          done
+          echo "::error::https://monitor.boralula.org respondeu $code (a regra de redirecionamento para o Looker ainda existe?)."; exit 1
