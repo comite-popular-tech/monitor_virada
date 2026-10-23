@@ -485,12 +485,16 @@ const RADARF=[['local','Local'],['uf','Estado'],['alvo','Cidade Alvo'],['porte',
 function radarDraw(boxId,withDelta,r){const mx=Math.max(1,...r.map(x=>x.idx));
   $('#'+boxId).innerHTML=r.length?`<table><thead><tr>${withDelta?'<th>macrotema</th><th>local</th>':'<th>local</th><th>macrotema</th>'}<th>termo</th><th>indice_vs_ancora</th>${withDelta?'<th class="n">% Δ</th>':''}</tr></thead><tbody>${r.map(x=>`<tr>${withDelta?`<td>${esc(x.mac)}</td><td>${esc(x.local)}</td>`:`<td>${esc(x.local)}</td><td>${esc(x.mac)}</td>`}<td>${esc(x.termo)}</td><td style="white-space:nowrap" data-tip="${fmt(x.idx)}"><span style="font-family:var(--mono);display:inline-block;min-width:70px">${fmt(x.idx)}</span>${barCell(x.idx,mx)}</td>${withDelta?`<td class="n ${x.dl==null?'':x.dl>=0?'up':'down'}">${x.dl==null?'-':String(x.dl).replace('.',',')+'% '+(x.dl>=0?'↑':'↓')}</td>`:''}</tr>`).join('')}</tbody></table>`:'<p class="sub">Sem municípios com esse filtro.</p>'}
 const RSEQ={};
+// Resposta do /api/radar por consulta. O fit() da resposta redesenha a página, o que chama radarTable de novo: com o
+// cache, esse redesenho não busca outra vez (sem ele, a página ficava em loop e o gráfico de evolução pulava).
+const RCACHE={};
 function radarTable(boxId,sideId,withDelta){const st=LF[sideId];
   if(D.radarApi){const q=new URLSearchParams({...st});if(F.uf)q.set('pf_uf',F.uf);if(F.q)q.set('q',F.q);const seq=RSEQ[boxId]=(RSEQ[boxId]||0)+1;
+    const draw=j=>{blockFiltersOpts(sideId,st,j.opts,RADARF,()=>radarTable(boxId,sideId,withDelta),true);radarDraw(boxId,withDelta,j.rows);enhanceTables()};
+    const k=String(q);if(RCACHE[k]){draw(RCACHE[k]);return}
     if(!$('#'+boxId).innerHTML)$('#'+boxId).innerHTML='<p class="sub">Carregando municípios…</p>';
-    fetch('api/radar?'+q).then(x=>{if(!x.ok)throw new Error(x.status);return x.json()}).then(j=>{if(seq!==RSEQ[boxId])return;
-      blockFiltersOpts(sideId,st,j.opts,RADARF,()=>radarTable(boxId,sideId,withDelta),true);
-      j.rows.forEach(x=>x.mac=CALC.temaAjustado(x.mac));radarDraw(boxId,withDelta,j.rows);enhanceTables();fit()})
+    fetch('api/radar?'+q).then(x=>{if(!x.ok)throw new Error(x.status);return x.json()}).then(j=>{
+      j.rows.forEach(x=>x.mac=CALC.temaAjustado(x.mac));RCACHE[k]=j;if(seq!==RSEQ[boxId])return;draw(j);fit()})
       .catch(()=>{$('#'+boxId).innerHTML='<p class="sub">Não foi possível carregar os municípios. Recarregue a página.</p>'});return}
   const ds=D.days.filter(inR);const ld=ds.at(-1);const rows=D.radar.filter(r=>r.d===ld);
   const pr=rows.filter(x=>pass(x,['tema','cand','r','ativaTxt']));blockFilters(sideId,st,pr,RADARF,()=>radarTable(boxId,sideId,withDelta),true);
