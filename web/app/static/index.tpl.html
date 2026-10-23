@@ -180,6 +180,37 @@ details.how summary::-webkit-details-marker{display:none}
 details.how summary::before{content:"＋ ";font-weight:800}
 details.how[open] summary::before{content:"－ "}
 details.how[open] summary{margin-bottom:6px}
+
+/* ===== UX v2 (23/10): hierarquia visível ===== */
+:root{--shadow:0 1px 2px rgba(40,10,12,.06),0 4px 14px rgba(40,10,12,.05)}
+.ttl h1{font-size:22px;letter-spacing:-.02em}
+.ttl p{font-size:13px;opacity:.9;margin-top:2px}
+.filters{background:var(--surface);box-shadow:var(--shadow)}
+.wrap{gap:28px;padding-block:28px 56px}
+.card{padding:24px;border-radius:18px;box-shadow:var(--shadow);gap:16px}
+.card.wide{margin-top:0!important}
+.section-title{color:var(--fg)!important;font-size:22px;font-weight:800;padding-left:14px;position:relative;line-height:1.2}
+.section-title::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:5px;border-radius:3px;background:var(--brand)}
+.section-title+.sub,.card>div>.sub{padding-left:14px;max-width:75ch;font-size:13.5px;margin-top:6px}
+.exec .card{background:linear-gradient(180deg,var(--surface),var(--surface-2))}
+.exec h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.xk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.xk:empty{display:none}
+.xt{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0;border-top:4px solid var(--brand)}
+.xv{font:800 40px/1 var(--display);letter-spacing:-.03em;color:var(--brand-deep);font-variant-numeric:tabular-nums}
+.xl{font-size:13.5px;font-weight:600;margin-top:8px;color:var(--fg);line-height:1.35}
+.xs{font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exec .bul{font-size:13px;color:var(--muted)}
+.xk:not(:empty)+.bul{display:none}
+.xv{white-space:nowrap}
+.how{background:none;border-left:0;border-top:1px dashed var(--line);border-radius:0;padding:12px 0 0}
+details.how summary{font-size:12.5px;color:var(--muted)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+td{padding:11px 8px}
+#tb-emalta td:nth-child(4),#tb-emalta td .q{font-size:12px;color:var(--muted)}
+#tb-emalta td:nth-child(2){font-weight:700}
+@media (max-width:920px){.xk{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.xv{font-size:26px}.card{padding:16px}.section-title{font-size:19px}}
 /* abas no celular: sombra na borda direita avisa que dá para rolar */
 @media (max-width:620px){.tabs{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}}
 </style>
@@ -204,6 +235,7 @@ details.how[open] summary{margin-bottom:6px}
 <section class="exec" aria-label="Resumo executivo">
   <article class="card">
     <div class="head"><div><h2>Resumo executivo</h2><p class="sub" id="exec-sub"></p></div></div>
+    <div class="xk" id="exec-kpi"></div>
     <ul class="bul" id="exec-list"></ul>
   </article>
 </section>
@@ -639,7 +671,7 @@ function fitPass(){let again=false;const TH=t=>Math.min(t.scrollHeight,parseFloa
 function fit(){fitReset();if(fitPass()){R[page]();enhanceTables();fitPass()}}
 function render(){Object.keys(F).forEach(k=>{if(!PAGEKEYS[page].includes(k))delete F[k]});dates();pageFilters();activeChips();
   document.querySelectorAll('[data-page]').forEach(s=>s.hidden=s.id!=='p-'+page);document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.p===page));
-  $('#pgtitle').textContent='MONITOR DA VIRADA :: '+SUB[page];$('#subtitle').textContent='';$('#whenlbl').textContent='atualização';R[page]();enhanceTables();fit();execSummary();save()}
+  $('#pgtitle').textContent='Monitor da Virada';$('#subtitle').textContent=SUB[page];$('#whenlbl').textContent='atualização';R[page]();enhanceTables();fit();execSummary();save()}
 
 $('#tema-rank').onchange=()=>{mob();enhanceTables();fit()};$('#tema-acoes').onchange=()=>{mob();enhanceTables();fit()};
 document.addEventListener('click',e=>{
@@ -656,26 +688,36 @@ function snapshot(){
     const byR={};E.forEach(r=>{byR[r.r]=Math.max(byR[r.r]||0,r.vol)});const top=Object.entries(byR).sort((a,b)=>b[1]-a[1]).slice(0,5);
     const ufC={};E.filter(r=>r.cand==='Flávio / Bolsonaro').forEach(r=>ufC[r.uf]=(ufC[r.uf]||0)+1);const ufTop=Object.entries(ufC).sort((a,b)=>b[1]-a[1]).slice(0,3);
     const ur=a=>new Set(a.map(r=>r.r)).size;const A=D.emalta.filter(r=>inR(r.d)&&pass(r,['ativaTxt'])&&r.ativa===true);const AE=A.filter(r=>r.tema==='Eleição'||r.cand!=='Nenhum');
-    return {bul:[`<b>${pct(ur(AE),ur(A))}</b> dos assuntos ativos agora falam da eleição ou citam um candidato (${ur(AE)} de ${ur(A)}).`,
+    const fx=n=>n>=1e6?String(+(n/1e6).toFixed(1)).replace('.',',')+' mi':n>=1e3?Math.round(n/1e3)+' mil':String(n);
+    const kpi=[{v:pct(ur(AE),ur(A)),l:'dos assuntos ativos falam da eleição',s:`${ur(AE)} de ${ur(A)} assuntos`},
+      {v:byC('Flávio / Bolsonaro'),l:'assuntos citam Flávio / Bolsonaro',s:`Lula ${byC('Lula')} · os dois ${byC('Os dois')}`},
+      top[0]?{v:fx(top[0][1])+'+',l:`buscas: <b>${esc(top[0][0])}</b>`,s:'maior volume agora'}:null,
+      ufTop[0]?{v:ufTop[0][0],l:'onde o Flávio mais aparece',s:ufTop.map(([u2,n])=>`${u2} ${n}`).join(' · ')}:null].filter(Boolean);
+    return {kpi,bul:[`<b>${pct(ur(AE),ur(A))}</b> dos assuntos ativos agora falam da eleição ou citam um candidato (${ur(AE)} de ${ur(A)}).`,
       `Menções: <b>Flávio / Bolsonaro ${byC('Flávio / Bolsonaro')}</b>, Lula ${byC('Lula')}, os dois ${byC('Os dois')}.`,
       top.length?`Maiores volumes: ${top.slice(0,3).map(([r,v])=>`<b>${esc(r)}</b> (${fmt(v)}+)`).join(', ')}.`:'',
       ufTop.length?`Onde o Flávio mais aparece no Em alta: ${ufTop.map(([u2,n])=>`${u2} (${n})`).join(', ')}.`:''].filter(Boolean),
       ctx:{pagina:'Curto prazo (assuntos em alta no Google)',assuntos:E.slice(0,80).map(r=>({data:r.d,uf:r.uf,tema:r.tema,assunto:r.r,candidato:r.cand,termos:r.t,aumento_pct:r.aum,volume:r.vol,horas_em_alta:r.dur}))}}}
   if(page==='mob'){const c=cities();const p1=c.filter(x=>x.pri[0]==='1'),fl=c.filter(x=>x.sinal.startsWith('Flávio'));const sub=[...c].sort((a,b)=>b.tv-a.tv).slice(0,3);
     const tp={};c.forEach(x=>tp[x.tp]=(tp[x.tp]||0)+1);const t1=Object.entries(tp).sort((a,b)=>b[1]-a[1])[0];
-    return {bul:[`<b>${c.length}</b> cidades no recorte; <b>${p1.length}</b> em Prioridade 1${p1.length?': '+p1.slice(0,4).map(x=>esc(x.c)).join(', '):''}.`,
+    const kpi=[{v:c.length,l:'cidades no recorte'},{v:p1.length,l:'em Prioridade 1',s:p1.slice(0,3).map(x=>esc(x.c)).join(', ')},{v:fl.length,l:'cidades onde o Flávio domina a busca'},
+      sub[0]?{v:'+'+String(sub[0].tv).replace('.',','),l:`maior aceleração: <b>${esc(sub[0].c)}</b>`,s:esc(sub[0].ts)}:null].filter(Boolean);
+    return {kpi,bul:[`<b>${c.length}</b> cidades no recorte; <b>${p1.length}</b> em Prioridade 1${p1.length?': '+p1.slice(0,4).map(x=>esc(x.c)).join(', '):''}.`,
       `O Flávio ocupa a conversa em <b>${fl.length}</b> cidades${fl.length?' ('+fl.slice(0,4).map(x=>esc(x.c)).join(', ')+')':''}.`,
       t1?(t1[1]===c.length?`Todas as ${c.length} cidades têm o mesmo tema principal hoje (<b>${esc(t1[0])}</b>).`:`Tema principal mais comum: <b>${esc(t1[0])}</b> (${t1[1]} de ${c.length} cidades).`):'',
       sub.length?`Mais aceleração: ${sub.map(x=>`<b>${esc(x.c)}</b> em ${esc(x.ts)} (+${String(x.tv).replace('.',',')})`).join(', ')}.`:''].filter(Boolean),
       ctx:{pagina:'Mobilização por município',cidades:c.slice(0,60).map(x=>({cidade:x.c,uf:x.uf,segmento:x.seg,prioridade:x.pri,sinal_busca:x.sinal,tema_principal:x.tp,indices:x.idx,tema_subindo:x.ts,subiu_pontos:x.tv,busca_menos_voto_pp:x.dif==null?null:Math.round(x.dif*100)}))}}}
   const by={};D.pautas.filter(r=>inR(r.d)).forEach(r=>{const k=r.alvo+'|'+r.q;const o=by[k]||(by[k]={...r,v:0,nova:false,emalta:false});o.v=Math.max(o.v,r.v);o.nova=o.nova||r.nova;o.emalta=o.emalta||r.emalta});
   const P=Object.values(by).filter(r=>pass(r));const L=P.filter(r=>r.alvo==='Lula').sort((a,b)=>b.v-a.v),FL=P.filter(r=>r.alvo==='Flávio / Bolsonaro').sort((a,b)=>b.v-a.v);const hot=P.filter(r=>r.emalta);
-  return {bul:[`<b>${FL.length}</b> perguntas em alta sobre o Flávio e <b>${L.length}</b> sobre o Lula.`,
+  const kpi=[{v:FL.length,l:'perguntas em alta sobre o Flávio'},{v:L.length,l:'perguntas em alta sobre o Lula'},{v:hot.length,l:'viraram assunto nacional'},
+    L[0]?{v:'+'+fmt(L[0].v)+'%',l:'pergunta sobre o Lula que mais cresce',s:'"'+esc(L[0].q)+'"'}:null].filter(Boolean);
+  return {kpi,bul:[`<b>${FL.length}</b> perguntas em alta sobre o Flávio e <b>${L.length}</b> sobre o Lula.`,
     L[0]?`Pergunta sobre o Lula que mais cresce: <b>"${esc(L[0].q)}"</b> (+${fmt(L[0].v)}%).`:'',
     FL[0]?`Sobre o Flávio: <b>"${esc(FL[0].q)}"</b> (+${fmt(FL[0].v)}%).`:'',
     hot.length?`<b>${hot.length}</b> perguntas viraram assunto nacional: ${hot.slice(0,3).map(r=>'"'+esc(r.q)+'"').join(', ')}.`:''].filter(Boolean),
     ctx:{pagina:'Análise de pautas (buscas relacionadas em alta)',perguntas:P.sort((a,b)=>b.v-a.v).slice(0,70).map(r=>({sobre:r.alvo,tema:r.mac,termo:r.base,consulta:r.q,crescimento_pct:r.v,nova:r.nova,em_alta:r.emalta}))}}}
 function execSummary(){const s=snapshot();$('#exec-list').innerHTML=s.bul.map(b=>`<li>${b}</li>`).join('');
+  $('#exec-kpi').innerHTML=(s.kpi||[]).map(k=>`<div class="xt"><div class="xv">${k.v}</div><div class="xl">${k.l}</div>${k.s?`<div class="xs">${k.s}</div>`:''}</div>`).join('');
   const fs=Object.entries(F).map(([k,v])=>LABEL[k]+(v==='true'?'':': '+v));$('#exec-sub').textContent=`${$('#periodo').textContent}${fs.length?' · '+fs.join(' · '):''}`}
 
 
