@@ -1,0 +1,13 @@
+// Worker monitor-virada-proxy, na conta kadu da Cloudflare (a da zona boralula.org). Publica pelo
+// .github/workflows/proxy.yml. Ver o proxy/index.js.
+{
+  "name": "monitor-virada-proxy",
+  "main": "index.js",
+  "compatibility_date": "2026-10-01",
+  // Só pelo boralula: pelo *.workers.dev ele ficaria fora das regras da zona
+  "workers_dev": false,
+  // Rota sobre o CNAME monitor (com proxy) que já existe na zona, do Terraform do iac-shared (terraform/cloudflare-kadu).
+  // zone_id, não zone_name: há uma segunda zona boralula.org (pendente) na conta do comitê.
+  "routes": [{ "pattern": "monitor.boralula.org/*", "zone_id": "2dcc9ea6adb0fa388fa46ffb9b15a058" }],
+  "vars": { "ORIGEM": "https://monitor-virada-3whzjtirja-rj.a.run.app" }
+}
